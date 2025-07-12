@@ -69,7 +69,7 @@ struct AddProxyServerView: View {
                 Text("服务器地址")
                     .font(.headline)
 
-                TextField("例如: proxy.example.com", text: $serverHost)
+                TextField("例如: hk-proxy.biliroaming.com", text: $serverHost)
                     .textFieldStyle(ProxyTextFieldStyle())
                     .focusable(true)
             }
@@ -502,7 +502,7 @@ struct AddProxyServerView_Previews: PreviewProvider {
 
             ProxyServerDetailView(server: ProxyServerConfig(
                 name: "香港代理服务器",
-                host: "hk-proxy.example.com",
+                host: "tw-proxy.biliroaming.com",
                 regions: ["hk", "tw", "mo"]
             ))
         }
