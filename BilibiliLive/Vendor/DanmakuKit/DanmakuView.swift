@@ -721,4 +721,33 @@ private extension DanmakuView {
         guard pool == nil else { return }
         pool = DanmakuQueuePool(name: "com.DanmakuKit.DanmakuAsynclayer", queueCount: DRAW_DANMAKU_QUEUE_COUNT, qos: .userInteractive)
     }
+
+    /// 获取碰撞检测性能统计
+    func getCollisionPerformanceStats() -> (optimizer: (activeDanmus: Int, gridCells: Int, memoryKB: Int)?, tracks: [(index: Int, cellCount: Int, isOptimized: Bool)]) {
+        let optimizerStats = collisionOptimizer?.getPerformanceStats()
+
+        var trackStats: [(index: Int, cellCount: Int, isOptimized: Bool)] = []
+
+        // 浮动轨道统计
+        for (index, track) in floatingTracks.enumerated() {
+            if let optimizedTrack = track as? DanmakuFloatingTrackOptimized {
+                let stats = optimizedTrack.getPerformanceStats()
+                trackStats.append((index: index, cellCount: stats.cellCount, isOptimized: stats.isOptimized))
+            } else {
+                trackStats.append((index: index, cellCount: track.danmakuCount, isOptimized: false))
+            }
+        }
+
+        // 垂直轨道统计
+        for (index, track) in (topTracks + bottomTracks).enumerated() {
+            if let optimizedTrack = track as? DanmakuVerticalTrackOptimized {
+                let stats = optimizedTrack.getPerformanceStats()
+                trackStats.append((index: index + floatingTracks.count, cellCount: stats.cellCount, isOptimized: stats.isOptimized))
+            } else {
+                trackStats.append((index: index + floatingTracks.count, cellCount: track.danmakuCount, isOptimized: false))
+            }
+        }
+
+        return (optimizer: optimizerStats, tracks: trackStats)
+    }
 }
