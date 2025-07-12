@@ -14,11 +14,13 @@ class DanmakuFloatingTrackOptimized: DanmakuFloatingTrack {
 
     private weak var optimizer: DanmuCollisionOptimizer?
     private var isOptimizationEnabled: Bool = true
+    private weak var danmakuView: UIView?
 
     // MARK: - Initialization
 
-    override init(view: UIView) {
+    required init(view: UIView) {
         super.init(view: view)
+        danmakuView = view
     }
 
     /// 设置碰撞优化器
@@ -38,7 +40,7 @@ class DanmakuFloatingTrackOptimized: DanmakuFloatingTrack {
         super.shoot(danmaku: danmaku)
 
         // 通知优化器添加弹幕
-        if isOptimizationEnabled, let model = danmaku.model, let view = view {
+        if isOptimizationEnabled, let model = danmaku.model, let view = danmakuView {
             let trajectory = CGRect(
                 x: view.bounds.width + danmaku.bounds.width / 2.0,
                 y: positionY - danmaku.bounds.height / 2.0,
@@ -51,7 +53,7 @@ class DanmakuFloatingTrackOptimized: DanmakuFloatingTrack {
     }
 
     override func canShoot(danmaku: DanmakuCellModel) -> Bool {
-        guard isOptimizationEnabled, let optimizer = optimizer, let view = view else {
+        guard isOptimizationEnabled, let optimizer = optimizer, let view = danmakuView else {
             // 回退到原始算法
             return super.canShoot(danmaku: danmaku)
         }
@@ -63,7 +65,7 @@ class DanmakuFloatingTrackOptimized: DanmakuFloatingTrack {
     }
 
     override func canSync(_ danmaku: DanmakuCellModel, at progress: Float) -> Bool {
-        guard isOptimizationEnabled, let optimizer = optimizer, let view = view else {
+        guard isOptimizationEnabled, let optimizer = optimizer, let view = danmakuView else {
             // 回退到原始算法
             return super.canSync(danmaku, at: progress)
         }
@@ -86,11 +88,13 @@ class DanmakuVerticalTrackOptimized: DanmakuVerticalTrack {
 
     private weak var optimizer: DanmuCollisionOptimizer?
     private var isOptimizationEnabled: Bool = true
+    private weak var danmakuView: UIView?
 
     // MARK: - Initialization
 
-    override init(view: UIView) {
+    required init(view: UIView) {
         super.init(view: view)
+        danmakuView = view
     }
 
     /// 设置碰撞优化器
@@ -109,9 +113,9 @@ class DanmakuVerticalTrackOptimized: DanmakuVerticalTrack {
         super.shoot(danmaku: danmaku)
 
         // 垂直弹幕也需要在动画结束时从优化器中移除
-        if isOptimizationEnabled, let model = danmaku.model {
+        if isOptimizationEnabled, let model = danmaku.model, let view = danmakuView {
             let trajectory = CGRect(
-                x: (view?.bounds.width ?? 0) / 2.0 - danmaku.bounds.width / 2.0,
+                x: view.bounds.width / 2.0 - danmaku.bounds.width / 2.0,
                 y: positionY - danmaku.bounds.height / 2.0,
                 width: danmaku.bounds.width,
                 height: danmaku.bounds.height
@@ -141,38 +145,5 @@ class DanmakuTrackFactory {
         let track = DanmakuVerticalTrackOptimized(view: view)
         track.setCollisionOptimizer(optimizer)
         return track
-    }
-}
-
-// MARK: - Performance Monitor Extension
-
-extension DanmakuView {
-    /// 获取碰撞检测性能统计
-    func getCollisionPerformanceStats() -> (optimizer: (activeDanmus: Int, gridCells: Int, memoryKB: Int)?, tracks: [(index: Int, cellCount: Int, isOptimized: Bool)]) {
-        let optimizerStats = collisionOptimizer?.getPerformanceStats()
-
-        var trackStats: [(index: Int, cellCount: Int, isOptimized: Bool)] = []
-
-        // 浮动轨道统计
-        for (index, track) in floatingTracks.enumerated() {
-            if let optimizedTrack = track as? DanmakuFloatingTrackOptimized {
-                let stats = optimizedTrack.getPerformanceStats()
-                trackStats.append((index: index, cellCount: stats.cellCount, isOptimized: stats.isOptimized))
-            } else {
-                trackStats.append((index: index, cellCount: track.danmakuCount, isOptimized: false))
-            }
-        }
-
-        // 垂直轨道统计
-        for (index, track) in (topTracks + bottomTracks).enumerated() {
-            if let optimizedTrack = track as? DanmakuVerticalTrackOptimized {
-                let stats = optimizedTrack.getPerformanceStats()
-                trackStats.append((index: index + floatingTracks.count, cellCount: stats.cellCount, isOptimized: stats.isOptimized))
-            } else {
-                trackStats.append((index: index + floatingTracks.count, cellCount: track.danmakuCount, isOptimized: false))
-            }
-        }
-
-        return (optimizer: optimizerStats, tracks: trackStats)
     }
 }

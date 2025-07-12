@@ -15,7 +15,11 @@ class DanmakuTextCellModel: DanmakuCellModel, Equatable {
 
     var text = ""
     var color: UIColor = .white
-    var font = UIFont.systemFont(ofSize: Settings.danmuSize.size)
+
+    // 使用字体池获取字体，避免重复创建
+    var font: UIFont {
+        return DanmuFontManager.shared.getFont(size: Settings.danmuSize.size)
+    }
 
     var cellClass: DanmakuCell.Type {
         return DanmakuTextCell.self
@@ -31,9 +35,9 @@ class DanmakuTextCellModel: DanmakuCellModel, Equatable {
 
     var isPause = false
 
+    // 使用缓存的尺寸计算
     func calculateSize() {
-        size = NSString(string: text).boundingRect(with: CGSize(width: CGFloat(Float.infinity
-        ), height: 20), options: [.usesFontLeading, .usesLineFragmentOrigin], attributes: [.font: font], context: nil).size
+        size = DanmuTextRenderer.shared.getTextSize(text: text, font: font)
     }
 
     static func == (lhs: DanmakuTextCellModel, rhs: DanmakuTextCellModel) -> Bool {

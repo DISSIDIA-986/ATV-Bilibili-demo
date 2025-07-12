@@ -5,6 +5,7 @@
 //  Created by Claude on 2025/7/12.
 //
 
+import CocoaLumberjackSwift
 import UIKit
 
 /// 弹幕性能监控器
@@ -108,7 +109,7 @@ class DanmuPerformanceMonitor {
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         """
 
-        Logger.info(report)
+        DDLogInfo(report)
 
         lastReportTime = now
 
@@ -139,43 +140,5 @@ class DanmuPerformanceMonitor {
         }
 
         return recommendations
-    }
-}
-
-// MARK: - DanmuTextCell Performance Integration
-
-extension DanmuTextCell {
-    /// 记录渲染性能（在displaying方法中调用）
-    private func recordRenderingPerformance(isFromCache: Bool, renderTime: TimeInterval = 0) {
-        DanmuPerformanceMonitor.shared.recordRenderEvent(isFromCache: isFromCache, renderTime: renderTime)
-    }
-
-    /// 优化后的displaying方法（添加性能监控）
-    func displayingWithPerformanceMonitoring(_ context: CGContext, _ size: CGSize, _ isCancelled: Bool) {
-        guard let model = model as? DanmakuTextCellModel else { return }
-
-        let startTime = CFAbsoluteTimeGetCurrent()
-        let strokeColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: CGFloat(Settings.danmuStrokeAlpha.rawValue))
-
-        // 尝试从预渲染缓存获取图像
-        if let cachedImage = DanmuTextRenderer.shared.getRenderedText(
-            text: model.text,
-            font: model.font,
-            color: model.color,
-            strokeColor: strokeColor,
-            alpha: CGFloat(Settings.danmuAlpha.rawValue),
-            strokeWidth: CGFloat(Settings.danmuStrokeWidth.rawValue)
-        ) {
-            // 使用缓存的预渲染图像
-            context.draw(cachedImage.cgImage!, in: CGRect(origin: .zero, size: size))
-            recordRenderingPerformance(isFromCache: true)
-            return
-        }
-
-        // 回退到直接渲染
-        performDirectRendering(context, size, model, strokeColor)
-
-        let renderTime = CFAbsoluteTimeGetCurrent() - startTime
-        recordRenderingPerformance(isFromCache: false, renderTime: renderTime)
     }
 }
