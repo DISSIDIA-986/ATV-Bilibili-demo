@@ -358,6 +358,7 @@
 				CODE_SIGN_STYLE = Manual;
 				"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvsimulator*]" = "";
+				"CODE_SIGNING_ALLOWED[sdk=appletvsimulator*]" = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/BilibiliLive/Vendor",
@@ -390,6 +391,7 @@
 				CODE_SIGN_STYLE = Manual;
 				"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvsimulator*]" = "";
+				"CODE_SIGNING_ALLOWED[sdk=appletvsimulator*]" = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/BilibiliLive/Vendor",
