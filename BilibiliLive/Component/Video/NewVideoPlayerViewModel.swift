@@ -5,6 +5,7 @@
 //  Created by yicheng on 2024/5/23.
 //
 
+import AVFoundation
 import Combine
 import UIKit
 
@@ -36,6 +37,58 @@ class VideoPlayerViewModel {
 
     init(playInfo: PlayInfo) {
         self.playInfo = playInfo
+        setupQualityAdaptationListener()
+    }
+
+    private func setupQualityAdaptationListener() {
+        NotificationCenter.default.publisher(for: .init("QualityAdaptationRequested"))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                self?.handleQualityAdaptation(notification: notification)
+            }
+            .store(in: &cancellable)
+    }
+
+    private func handleQualityAdaptation(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let targetQuality = userInfo["targetQuality"] as? MediaQualityEnum,
+              let currentTime = userInfo["currentTime"] as? CMTime
+        else {
+            Logger.warn("画质自适应通知缺少必要参数")
+            return
+        }
+
+        Logger.info("收到画质自适应请求，切换到: \(targetQuality.desp)")
+
+        Task {
+            do {
+                // 保存当前播放时间
+                let savedTime = currentTime
+
+                // 重新加载视频数据
+                let data = try await loadVideoInfo()
+
+                // 创建新的播放插件
+                let player = BVideoPlayPlugin(detailData: data)
+
+                // 移除旧插件
+                if let playPlugin = playPlugin {
+                    onPluginRemove.send(playPlugin)
+                }
+
+                // 更新当前插件引用
+                playPlugin = player
+
+                // 发送新插件（只发送播放器插件进行替换）
+                onPluginReady.send([player])
+
+                Logger.info("画质自适应完成")
+
+            } catch {
+                Logger.error("画质自适应失败: \(error)")
+                onPluginReady.send(completion: .failure("画质切换失败: \(error.localizedDescription)"))
+            }
+        }
     }
 
     func load() async {
@@ -157,7 +210,10 @@ class VideoPlayerViewModel {
 
         playPlugin = player
 
-        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist]
+        // 添加画质自适应插件
+        let qualityAdapter = QualityAdapterPlugin()
+
+        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, qualityAdapter]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)

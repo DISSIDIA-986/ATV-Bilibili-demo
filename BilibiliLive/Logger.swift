@@ -54,6 +54,22 @@ class Logger {
         DDLogWarn("\(error)", file: file, function: function, line: line)
     }
 
+    static func error(_ message: @autoclosure () -> DDLogMessageFormat,
+                      file: StaticString = #file,
+                      function: StaticString = #function,
+                      line: UInt = #line)
+    {
+        DDLogError(message(), file: file, function: function, line: line)
+    }
+
+    static func error(_ error: Any,
+                      file: StaticString = #file,
+                      function: StaticString = #function,
+                      line: UInt = #line)
+    {
+        DDLogError("\(error)", file: file, function: function, line: line)
+    }
+
     static func latestLogPath() -> String? {
         fileLogger.logFileManager.sortedLogFilePaths.first
     }
