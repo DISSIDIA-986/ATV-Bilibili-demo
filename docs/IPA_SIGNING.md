@@ -17,7 +17,16 @@
 
 ## 🚀 快速开始
 
-### 一键签名 (推荐)
+### ⚡ 仅模拟器测试 (推荐)
+如果只需要在模拟器中测试，**无需任何签名配置**：
+1. 直接打开 `BilibiliLive.xcodeproj`
+2. 选择 Apple TV 模拟器目标
+3. 按 ⌘+R 运行 (项目已配置为模拟器免签名)
+
+### 🔐 真机部署签名
+需要部署到真机设备时，按以下步骤配置：
+
+#### 一键签名 (推荐)
 ```bash
 # 1. 编辑签名脚本配置
 vim scripts/sign_ipa.sh
@@ -30,6 +39,12 @@ EXPORT_METHOD="ad-hoc"          # 或 "enterprise"
 # 3. 运行签名脚本
 ./scripts/sign_ipa.sh
 ```
+
+#### Xcode手动配置
+1. 打开项目 → Signing & Capabilities
+2. 将 **CODE_SIGN_STYLE** 改为 **Automatic**
+3. 设置 **Development Team** 为你的开发者团队
+4. 修改 **Bundle Identifier** 为唯一标识符
 
 ## 🛠️ 签名方法
 
@@ -275,6 +290,28 @@ end
 | Device not registered | 设备未注册 | 注册设备UDID并重新生成描述文件 |
 | Bundle ID conflict | Bundle标识符冲突 | 修改为唯一的Bundle ID |
 | Provisioning profile error | 描述文件问题 | 重新下载匹配的描述文件 |
+| **Communication with Apple failed** | 模拟器使用了真机签名 | 确保选择模拟器目标，使用模拟器配置 |
+| **No profiles found** | 自动签名但无设备 | 切换为模拟器或注册真机设备 |
+
+### 🆕 新增：模拟器签名配置问题
+
+#### 问题描述
+```
+Communication with Apple failed
+Your team has no devices from which to generate a provisioning profile
+```
+
+#### 解决方案
+项目已预配置为模拟器免签名运行：
+```
+CODE_SIGN_STYLE = Manual;
+"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "-";
+```
+
+如果出现签名问题：
+1. **确认目标设备**：选择 Apple TV 模拟器，不是真机
+2. **检查项目配置**：签名配置应该是Manual模式
+3. **清理重建**：⌘+Shift+K 清理，然后 ⌘+B 重新编译
 
 ### 调试命令
 
