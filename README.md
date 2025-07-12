@@ -18,6 +18,9 @@
 - 关注列表
 - 历史播放
 - 稍后再看
+- **🌐 智能网络质量检测** (新增)
+- **⚡ 自适应超时和重试** (新增)
+- **🎯 地区限制代理支持** (增强)
 - 系统播放器播放视频
 - 视频弹幕
 - 热门评论
@@ -29,6 +32,40 @@
  ![](imgs/1.jpg)
  ![](imgs/2.jpg)
  ![](imgs/3.png)
+
+## 🚀 快速开始
+
+### 环境要求
+- macOS 14.0+ (Sonoma)
+- Xcode 15.0+
+- Apple TV 4K 或 tvOS Simulator
+
+### 一键安装
+```bash
+# 克隆项目
+git clone https://github.com/yichengchen/ATV-Bilibili-demo.git
+cd ATV-Bilibili-demo
+
+# 运行环境初始化脚本
+./scripts/setup.sh
+
+# 打开项目
+open BilibiliLive.xcodeproj
+```
+
+### 手动构建
+```bash
+# 构建项目
+./scripts/build.sh
+
+# 格式化代码
+./scripts/format_code.sh
+
+# 测试网络功能
+./scripts/test_network_quality.sh
+```
+
+更多详细信息请参考 [部署文档](docs/DEPLOYMENT.md)
 
 
 

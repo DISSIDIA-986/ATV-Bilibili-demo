@@ -75,6 +75,7 @@ class NetworkRetryManager: RequestInterceptor {
     private let retryConfig: RetryConfiguration
     private let timeoutConfig: AdaptiveTimeoutConfiguration
     private let performanceTracker = NetworkPerformanceTracker()
+    private let qualityDetector = NetworkQualityDetector.shared
     
     init(retryConfig: RetryConfiguration = .default, timeoutConfig: AdaptiveTimeoutConfiguration = .default) {
         self.retryConfig = retryConfig
@@ -88,9 +89,15 @@ class NetworkRetryManager: RequestInterceptor {
         
         // 根据设置决定是否使用自适应超时
         if Settings.networkAdaptiveTimeout {
+            // 优先使用网络质量检测的推荐超时时间
+            let recommendedTimeout = qualityDetector.getRecommendedNetworkConfig().timeout
             let adaptiveTimeout = performanceTracker.getAdaptiveTimeout(config: timeoutConfig)
-            adaptedRequest.timeoutInterval = adaptiveTimeout
-            Logger.debug("设置自适应超时: \(adaptiveTimeout)秒")
+            
+            // 取推荐超时和自适应超时的加权平均
+            let finalTimeout = (recommendedTimeout * 0.7) + (adaptiveTimeout * 0.3)
+            adaptedRequest.timeoutInterval = min(max(finalTimeout, timeoutConfig.minimumTimeout), timeoutConfig.maximumTimeout)
+            
+            Logger.debug("设置智能超时: \(finalTimeout)秒 (网络质量: \(qualityDetector.currentQuality.description))")
         } else {
             adaptedRequest.timeoutInterval = timeoutConfig.defaultTimeout
             Logger.debug("使用默认超时: \(timeoutConfig.defaultTimeout)秒")
@@ -121,18 +128,21 @@ class NetworkRetryManager: RequestInterceptor {
         }
         
         let retryCount = request.retryCount
-        let maxRetryCount = Settings.networkMaxRetryCount
+        // 使用网络质量检测的推荐重试次数
+        let maxRetryCount = qualityDetector.getRecommendedNetworkConfig().retryCount
         guard retryCount < maxRetryCount else {
-            Logger.warn("达到最大重试次数 (\(maxRetryCount))")
+            Logger.warn("达到智能重试次数限制 (\(maxRetryCount), 网络质量: \(qualityDetector.currentQuality.description))")
             completion(.doNotRetry)
             return
         }
         
-        // 计算退避延迟
-        let delay = calculateBackoffDelay(retryCount: retryCount)
+        // 计算退避延迟，根据网络质量调整
+        let baseDelay = calculateBackoffDelay(retryCount: retryCount)
+        let qualityMultiplier = getQualityDelayMultiplier()
+        let adjustedDelay = baseDelay * qualityMultiplier
         
-        Logger.info("网络请求重试 \(retryCount + 1)/\(maxRetryCount)，延迟 \(delay) 秒")
-        completion(.retryWithDelay(delay))
+        Logger.info("智能网络重试 \(retryCount + 1)/\(maxRetryCount)，延迟 \(adjustedDelay) 秒 (网络质量: \(qualityDetector.currentQuality.description))")
+        completion(.retryWithDelay(adjustedDelay))
     }
     
     private func shouldRetry(request: Request, response: HTTPURLResponse, error: Error) -> Bool {
@@ -170,6 +180,22 @@ class NetworkRetryManager: RequestInterceptor {
         let jitteredDelay = exponentialDelay * (0.5 + jitter * 0.5)
         
         return min(jitteredDelay, retryConfig.maxDelay)
+    }
+    
+    /// 根据网络质量获取延迟调整乘数
+    private func getQualityDelayMultiplier() -> Double {
+        switch qualityDetector.currentQuality {
+        case .excellent:
+            return 0.8  // 网络优秀，减少延迟
+        case .good:
+            return 1.0  // 网络良好，正常延迟
+        case .fair:
+            return 1.3  // 网络一般，增加延迟
+        case .poor:
+            return 1.8  // 网络较差，显著增加延迟
+        case .unknown:
+            return 1.2  // 未知质量，略微增加延迟
+        }
     }
     
     // MARK: - Performance Tracking
