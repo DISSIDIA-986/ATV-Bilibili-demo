@@ -6,6 +6,7 @@
 //
 
 import AVFoundation
+import CocoaLumberjackSwift
 import Combine
 import UIKit
 
@@ -213,7 +214,10 @@ class VideoPlayerViewModel {
         // 添加画质自适应插件
         let qualityAdapter = QualityAdapterPlugin()
 
-        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, qualityAdapter]
+        // 添加网络状态监控插件
+        let networkMonitor = NetworkMonitorPlugin()
+
+        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, qualityAdapter, networkMonitor]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)
