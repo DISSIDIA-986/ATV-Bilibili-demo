@@ -24,6 +24,27 @@ enum NoCookieSession {
     static let session = Session(configuration: URLSessionConfiguration.ephemeral)
 }
 
+// MARK: - Enhanced Network Session Management
+
+extension WebRequest {
+    
+    /// 获取增强的网络会话（带重试机制）
+    private static func getEnhancedSession(noCookie: Bool = false) -> Session {
+        let retryManager = NetworkRetryManager()
+        
+        if noCookie {
+            let config = URLSessionConfiguration.ephemeral
+            config.httpShouldSetCookies = false
+            return Session(configuration: config, interceptor: retryManager)
+        } else {
+            return Session(configuration: URLSession.shared.configuration, interceptor: retryManager)
+        }
+    }
+    
+    /// 全局网络重试管理器
+    private static let networkRetryManager = NetworkRetryManager()
+}
+
 enum WebRequest {
     enum EndPoint {
         static let related = "https://api.bilibili.com/x/web-interface/archive/related"
@@ -55,6 +76,8 @@ enum WebRequest {
                             noCookie: Bool = false,
                             complete: ((Result<Data, RequestError>) -> Void)? = nil)
     {
+        let startTime = Date()
+        
         var parameters = parameters
         if method != .get {
             parameters["biliCSRF"] = CookieHandler.shared.csrf()
@@ -76,21 +99,23 @@ enum WebRequest {
             afheaders.add(HTTPHeader(name: "Referer", value: Keys.referer))
         }
 
-        var session = Session.default
-        if noCookie {
-            session = NoCookieSession.session
-            session.sessionConfiguration.httpShouldSetCookies = false
-        }
-        session.sessionConfiguration.timeoutIntervalForResource = 10
-        session.sessionConfiguration.timeoutIntervalForRequest = 10
+        // 使用增强的网络会话
+        let session = getEnhancedSession(noCookie: noCookie)
 
         let completionHandler: (AFDataResponse<Data>) -> Void = { response in
+            let endTime = Date()
+            networkRetryManager.recordRequestPerformance(startTime: startTime, endTime: endTime)
+            
             switch response.result {
             case let .success(data):
+                Logger.debug("网络请求成功: \(url), 耗时: \(endTime.timeIntervalSince(startTime))秒")
                 complete?(.success(data))
             case let .failure(err):
-                print(err)
-                complete?(.failure(.networkFail))
+                Logger.warn("网络请求失败: \(url), 错误: \(err)")
+                
+                // 增强的错误处理
+                let requestError = mapAlamofireErrorToRequestError(err)
+                complete?(.failure(requestError))
             }
         }
 
@@ -109,6 +134,30 @@ enum WebRequest {
                                 headers: afheaders)
                     .responseData(completionHandler: completionHandler)
             }
+        }
+    }
+    
+    /// 映射Alamofire错误到请求错误
+    private static func mapAlamofireErrorToRequestError(_ error: AFError) -> RequestError {
+        switch error {
+        case .sessionTaskFailed(let sessionError):
+            if let urlError = sessionError as? URLError {
+                switch urlError.code {
+                case .timedOut:
+                    return .networkFail
+                case .networkConnectionLost, .notConnectedToInternet:
+                    return .networkFail
+                case .cannotConnectToHost, .cannotFindHost:
+                    return .networkFail
+                default:
+                    return .networkFail
+                }
+            }
+            return .networkFail
+        case .responseValidationFailed:
+            return .networkFail
+        default:
+            return .networkFail
         }
     }
 
