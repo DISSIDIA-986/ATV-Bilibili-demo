@@ -47,6 +47,12 @@ open BilibiliLive.xcodeproj
 ./scripts/test_network_quality.sh
 ```
 
+### 代理服务器测试
+```bash
+# 测试代理服务器配置和功能
+./scripts/test_proxy_servers.sh
+```
+
 ### IPA 签名准备
 ```bash
 # 检查签名环境
