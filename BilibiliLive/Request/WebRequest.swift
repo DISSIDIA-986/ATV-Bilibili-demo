@@ -27,11 +27,10 @@ enum NoCookieSession {
 // MARK: - Enhanced Network Session Management
 
 extension WebRequest {
-    
     /// 获取增强的网络会话（带重试机制）
     private static func getEnhancedSession(noCookie: Bool = false) -> Session {
         let retryManager = NetworkRetryManager()
-        
+
         if noCookie {
             let config = URLSessionConfiguration.ephemeral
             config.httpShouldSetCookies = false
@@ -40,7 +39,7 @@ extension WebRequest {
             return Session(configuration: URLSession.shared.configuration, interceptor: retryManager)
         }
     }
-    
+
     /// 全局网络重试管理器
     private static let networkRetryManager = NetworkRetryManager()
 }
@@ -77,7 +76,7 @@ enum WebRequest {
                             complete: ((Result<Data, RequestError>) -> Void)? = nil)
     {
         let startTime = Date()
-        
+
         var parameters = parameters
         if method != .get {
             parameters["biliCSRF"] = CookieHandler.shared.csrf()
@@ -105,14 +104,14 @@ enum WebRequest {
         let completionHandler: (AFDataResponse<Data>) -> Void = { response in
             let endTime = Date()
             networkRetryManager.recordRequestPerformance(startTime: startTime, endTime: endTime)
-            
+
             switch response.result {
             case let .success(data):
                 Logger.debug("网络请求成功: \(url), 耗时: \(endTime.timeIntervalSince(startTime))秒")
                 complete?(.success(data))
             case let .failure(err):
                 Logger.warn("网络请求失败: \(url), 错误: \(err)")
-                
+
                 // 增强的错误处理
                 let requestError = mapAlamofireErrorToRequestError(err)
                 complete?(.failure(requestError))
@@ -136,11 +135,11 @@ enum WebRequest {
             }
         }
     }
-    
+
     /// 映射Alamofire错误到请求错误
     private static func mapAlamofireErrorToRequestError(_ error: AFError) -> RequestError {
         switch error {
-        case .sessionTaskFailed(let sessionError):
+        case let .sessionTaskFailed(sessionError):
             if let urlError = sessionError as? URLError {
                 switch urlError.code {
                 case .timedOut:

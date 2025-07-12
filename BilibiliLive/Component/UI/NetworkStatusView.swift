@@ -12,12 +12,12 @@ import SwiftUI
 struct NetworkStatusView: View {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @State private var showDetails = false
-    
+
     var body: some View {
         HStack(spacing: 20) {
             // 网络状态指示器
             networkStatusIndicator
-            
+
             // 网络质量信息
             if showDetails {
                 networkDetailsView
@@ -34,21 +34,21 @@ struct NetworkStatusView: View {
             }
         }
     }
-    
+
     // MARK: - Status Indicator
-    
+
     private var networkStatusIndicator: some View {
         HStack(spacing: 12) {
             // 连接状态图标
             Image(systemName: connectionIcon)
                 .font(.title2)
                 .foregroundColor(connectionColor)
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(connectionText)
                     .font(.headline)
                     .foregroundColor(.primary)
-                
+
                 Text(qualityText)
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -56,9 +56,9 @@ struct NetworkStatusView: View {
         }
         .focusable(true)
     }
-    
+
     // MARK: - Details View
-    
+
     private var networkDetailsView: some View {
         VStack(alignment: .leading, spacing: 8) {
             // 延迟信息
@@ -69,7 +69,7 @@ struct NetworkStatusView: View {
                 Text("\(Int(networkMonitor.latency * 1000))ms")
                     .foregroundColor(latencyColor)
             }
-            
+
             // 推荐画质
             HStack {
                 Text("推荐画质:")
@@ -78,9 +78,9 @@ struct NetworkStatusView: View {
                 Text(networkMonitor.getRecommendedVideoQuality())
                     .foregroundColor(.primary)
             }
-            
+
             // 连接类型详情
-            if case .connected(let type) = networkMonitor.status {
+            if case let .connected(type) = networkMonitor.status {
                 HStack {
                     Text("连接类型:")
                         .foregroundColor(.secondary)
@@ -93,12 +93,12 @@ struct NetworkStatusView: View {
         .font(.caption)
         .frame(minWidth: 200)
     }
-    
+
     // MARK: - Computed Properties
-    
+
     private var connectionIcon: String {
         switch networkMonitor.status {
-        case .connected(let type):
+        case let .connected(type):
             switch type {
             case .wifi:
                 return "wifi"
@@ -115,7 +115,7 @@ struct NetworkStatusView: View {
             return "questionmark.circle"
         }
     }
-    
+
     private var connectionColor: Color {
         switch networkMonitor.getNetworkQuality() {
         case .excellent:
@@ -130,10 +130,10 @@ struct NetworkStatusView: View {
             return .gray
         }
     }
-    
+
     private var connectionText: String {
         switch networkMonitor.status {
-        case .connected(let type):
+        case let .connected(type):
             return type.displayName
         case .disconnected:
             return "未连接"
@@ -141,11 +141,11 @@ struct NetworkStatusView: View {
             return "检测中..."
         }
     }
-    
+
     private var qualityText: String {
         return "网络质量: \(networkMonitor.getNetworkQuality().description)"
     }
-    
+
     private var latencyColor: Color {
         if networkMonitor.latency < 0.2 {
             return .green
@@ -163,18 +163,18 @@ struct NetworkStatusOverlay: View {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @State private var showAlert = false
     @State private var lastKnownStatus: NetworkStatus = .unknown
-    
+
     var body: some View {
         Group {
             if showAlert {
                 VStack {
                     Spacer()
-                    
+
                     HStack {
                         Image(systemName: alertIcon)
                             .font(.title)
                             .foregroundColor(alertColor)
-                        
+
                         VStack(alignment: .leading) {
                             Text(alertTitle)
                                 .font(.headline)
@@ -182,7 +182,7 @@ struct NetworkStatusOverlay: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         Spacer()
                     }
                     .padding()
@@ -200,15 +200,15 @@ struct NetworkStatusOverlay: View {
             handleNetworkStatusChange(newStatus)
         }
     }
-    
+
     private func handleNetworkStatusChange(_ newStatus: NetworkStatus) {
         let shouldShowAlert = shouldShowAlertForStatusChange(from: lastKnownStatus, to: newStatus)
-        
+
         if shouldShowAlert {
             withAnimation(.easeInOut(duration: 0.5)) {
                 showAlert = true
             }
-            
+
             // 3秒后自动隐藏
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
                 withAnimation(.easeInOut(duration: 0.5)) {
@@ -216,10 +216,10 @@ struct NetworkStatusOverlay: View {
                 }
             }
         }
-        
+
         lastKnownStatus = newStatus
     }
-    
+
     private func shouldShowAlertForStatusChange(from oldStatus: NetworkStatus, to newStatus: NetworkStatus) -> Bool {
         switch (oldStatus, newStatus) {
         case (.connected, .disconnected):
@@ -232,7 +232,7 @@ struct NetworkStatusOverlay: View {
             return false
         }
     }
-    
+
     private var alertIcon: String {
         switch networkMonitor.status {
         case .connected:
@@ -243,7 +243,7 @@ struct NetworkStatusOverlay: View {
             return "questionmark.circle"
         }
     }
-    
+
     private var alertColor: Color {
         switch networkMonitor.status {
         case .connected:
@@ -254,10 +254,10 @@ struct NetworkStatusOverlay: View {
             return .orange
         }
     }
-    
+
     private var alertTitle: String {
         switch networkMonitor.status {
-        case .connected(let type):
+        case let .connected(type):
             return "网络已连接"
         case .disconnected:
             return "网络连接断开"
@@ -265,10 +265,10 @@ struct NetworkStatusOverlay: View {
             return "网络状态未知"
         }
     }
-    
+
     private var alertMessage: String {
         switch networkMonitor.status {
-        case .connected(let type):
+        case let .connected(type):
             return "已通过\(type.displayName)连接到网络"
         case .disconnected:
             return "请检查网络设置"
@@ -285,7 +285,7 @@ struct NetworkStatusView_Previews: PreviewProvider {
     static var previews: some View {
         VStack(spacing: 20) {
             NetworkStatusView()
-            
+
             NetworkStatusOverlay()
         }
         .preferredColorScheme(.dark)

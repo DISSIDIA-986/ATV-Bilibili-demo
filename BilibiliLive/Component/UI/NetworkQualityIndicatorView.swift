@@ -11,20 +11,20 @@ import SwiftUI
 struct NetworkQualityIndicatorView: View {
     @StateObject private var detector = NetworkQualityDetector.shared
     @State private var showDetails = false
-    
+
     var body: some View {
         HStack(spacing: 8) {
             // 网络质量图标和颜色
             Image(systemName: networkIcon)
                 .foregroundColor(qualityColor)
                 .font(.system(size: 16, weight: .medium))
-            
+
             if Settings.showNetworkQualityIndicator {
                 Text(detector.currentQuality.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            
+
             if detector.isDetecting {
                 ProgressView()
                     .scaleEffect(0.6)
@@ -47,7 +47,7 @@ struct NetworkQualityIndicatorView: View {
             NetworkQualityDetailView()
         }
     }
-    
+
     private var networkIcon: String {
         switch detector.currentQuality {
         case .excellent:
@@ -62,7 +62,7 @@ struct NetworkQualityIndicatorView: View {
             return "questionmark.circle"
         }
     }
-    
+
     private var qualityColor: Color {
         switch detector.currentQuality {
         case .excellent:
@@ -83,15 +83,15 @@ struct NetworkQualityIndicatorView: View {
 struct NetworkQualityDetailView: View {
     @StateObject private var detector = NetworkQualityDetector.shared
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
                 // 网络质量总览
                 networkQualityOverview
-                
+
                 Divider()
-                
+
                 // 详细指标
                 if let metrics = detector.metrics {
                     networkMetricsDetail(metrics)
@@ -99,12 +99,12 @@ struct NetworkQualityDetailView: View {
                     Text("正在检测网络质量...")
                         .foregroundColor(.secondary)
                 }
-                
+
                 Divider()
-                
+
                 // 推荐配置
                 recommendedSettings
-                
+
                 Spacer()
             }
             .padding()
@@ -116,7 +116,7 @@ struct NetworkQualityDetailView: View {
                         dismiss()
                     }
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("重新检测") {
                         detector.triggerDetection()
@@ -126,7 +126,7 @@ struct NetworkQualityDetailView: View {
             }
         }
     }
-    
+
     private var networkQualityOverview: some View {
         VStack(spacing: 12) {
             // 质量等级显示
@@ -134,21 +134,21 @@ struct NetworkQualityDetailView: View {
                 Image(systemName: qualityIcon)
                     .font(.system(size: 32))
                     .foregroundColor(qualityColor)
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text("网络质量")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    
+
                     Text(detector.currentQuality.description)
                         .font(.title2)
                         .fontWeight(.semibold)
                         .foregroundColor(qualityColor)
                 }
-                
+
                 Spacer()
             }
-            
+
             // 质量评分条
             if let metrics = detector.metrics {
                 QualityProgressBar(
@@ -164,16 +164,16 @@ struct NetworkQualityDetailView: View {
                 .fill(qualityColor.opacity(0.1))
         )
     }
-    
+
     private func networkMetricsDetail(_ metrics: NetworkQualityMetrics) -> some View {
         VStack(spacing: 16) {
             Text("网络指标")
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            
+
             LazyVGrid(columns: [
                 GridItem(.flexible()),
-                GridItem(.flexible())
+                GridItem(.flexible()),
             ], spacing: 16) {
                 MetricCard(
                     title: "延迟",
@@ -181,21 +181,21 @@ struct NetworkQualityDetailView: View {
                     icon: "timer",
                     color: latencyColor(metrics.latency)
                 )
-                
+
                 MetricCard(
                     title: "带宽",
                     value: String(format: "%.1f Mbps", metrics.bandwidth),
                     icon: "speedometer",
                     color: bandwidthColor(metrics.bandwidth)
                 )
-                
+
                 MetricCard(
                     title: "抖动",
                     value: String(format: "%.0f ms", metrics.jitter),
                     icon: "waveform.path.ecg",
                     color: jitterColor(metrics.jitter)
                 )
-                
+
                 MetricCard(
                     title: "丢包率",
                     value: String(format: "%.1f%%", metrics.packetLoss),
@@ -203,28 +203,28 @@ struct NetworkQualityDetailView: View {
                     color: packetLossColor(metrics.packetLoss)
                 )
             }
-            
+
             // 连接信息
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("连接类型")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    
+
                     Text(connectionTypeString(metrics.connectionType))
                         .font(.body)
                         .fontWeight(.medium)
                 }
-                
+
                 Spacer()
-                
+
                 VStack(spacing: 4) {
                     if metrics.isConstrained {
                         Label("受限网络", systemImage: "exclamationmark.circle.fill")
                             .font(.caption)
                             .foregroundColor(.orange)
                     }
-                    
+
                     if metrics.isExpensive {
                         Label("付费网络", systemImage: "dollarsign.circle.fill")
                             .font(.caption)
@@ -234,33 +234,33 @@ struct NetworkQualityDetailView: View {
             }
         }
     }
-    
+
     private var recommendedSettings: some View {
         VStack(spacing: 12) {
             Text("推荐配置")
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            
+
             let config = detector.getRecommendedNetworkConfig()
-            
+
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("推荐超时时间")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    
+
                     Text("\(Int(config.timeout)) 秒")
                         .font(.body)
                         .fontWeight(.medium)
                 }
-                
+
                 Spacer()
-                
+
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("推荐重试次数")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    
+
                     Text("\(config.retryCount) 次")
                         .font(.body)
                         .fontWeight(.medium)
@@ -271,37 +271,37 @@ struct NetworkQualityDetailView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(.systemGray6))
             )
-            
+
             // 趋势信息
             let (latencyTrend, bandwidthTrend) = detector.getQualityTrend()
-            
+
             if latencyTrend != 0 || bandwidthTrend != 0 {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("延迟趋势")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        
+
                         HStack {
                             Image(systemName: latencyTrend > 0 ? "arrow.up" : "arrow.down")
                                 .foregroundColor(latencyTrend > 0 ? .red : .green)
-                            
+
                             Text(latencyTrend > 0 ? "增加" : "改善")
                                 .font(.body)
                         }
                     }
-                    
+
                     Spacer()
-                    
+
                     VStack(alignment: .trailing, spacing: 4) {
                         Text("带宽趋势")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        
+
                         HStack {
                             Text(bandwidthTrend > 0 ? "提升" : "下降")
                                 .font(.body)
-                            
+
                             Image(systemName: bandwidthTrend > 0 ? "arrow.up" : "arrow.down")
                                 .foregroundColor(bandwidthTrend > 0 ? .green : .red)
                         }
@@ -315,9 +315,9 @@ struct NetworkQualityDetailView: View {
             }
         }
     }
-    
+
     // MARK: - Helper Views
-    
+
     private var qualityIcon: String {
         switch detector.currentQuality {
         case .excellent: return "checkmark.circle.fill"
@@ -327,7 +327,7 @@ struct NetworkQualityDetailView: View {
         case .unknown: return "questionmark.circle"
         }
     }
-    
+
     private var qualityColor: Color {
         switch detector.currentQuality {
         case .excellent: return .green
@@ -337,9 +337,9 @@ struct NetworkQualityDetailView: View {
         case .unknown: return .gray
         }
     }
-    
+
     // MARK: - Color Helpers
-    
+
     private func latencyColor(_ latency: TimeInterval) -> Color {
         switch latency {
         case 0..<50: return .green
@@ -348,7 +348,7 @@ struct NetworkQualityDetailView: View {
         default: return .red
         }
     }
-    
+
     private func bandwidthColor(_ bandwidth: Double) -> Color {
         switch bandwidth {
         case 50...: return .green
@@ -357,7 +357,7 @@ struct NetworkQualityDetailView: View {
         default: return .red
         }
     }
-    
+
     private func jitterColor(_ jitter: TimeInterval) -> Color {
         switch jitter {
         case 0..<10: return .green
@@ -366,7 +366,7 @@ struct NetworkQualityDetailView: View {
         default: return .red
         }
     }
-    
+
     private func packetLossColor(_ loss: Double) -> Color {
         switch loss {
         case 0..<1: return .green
@@ -375,10 +375,10 @@ struct NetworkQualityDetailView: View {
         default: return .red
         }
     }
-    
+
     private func connectionTypeString(_ type: NWInterface.InterfaceType?) -> String {
         guard let type = type else { return "未知" }
-        
+
         switch type {
         case .wifi: return "Wi-Fi"
         case .cellular: return "蜂窝网络"
@@ -397,17 +397,17 @@ struct MetricCard: View {
     let value: String
     let icon: String
     let color: Color
-    
+
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 20))
                 .foregroundColor(color)
-            
+
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
-            
+
             Text(value)
                 .font(.system(.body, design: .monospaced))
                 .fontWeight(.semibold)
@@ -430,14 +430,14 @@ struct QualityProgressBar: View {
     let value: Double
     let maxValue: Double
     let color: Color
-    
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color(.systemGray5))
                     .frame(height: 8)
-                
+
                 RoundedRectangle(cornerRadius: 4)
                     .fill(color)
                     .frame(
@@ -456,7 +456,7 @@ struct NetworkQualityIndicatorView_Previews: PreviewProvider {
     static var previews: some View {
         VStack(spacing: 20) {
             NetworkQualityIndicatorView()
-            
+
             NetworkQualityDetailView()
         }
         .padding()

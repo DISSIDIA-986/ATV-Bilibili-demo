@@ -5,9 +5,9 @@
 //  Created by Claude on 2025/1/12.
 //
 
+import Combine
 import Foundation
 import Network
-import Combine
 
 /// 网络连接类型
 enum NetworkConnectionType {
@@ -15,7 +15,7 @@ enum NetworkConnectionType {
     case ethernet
     case cellular
     case unknown
-    
+
     var displayName: String {
         switch self {
         case .wifi: return "Wi-Fi"
@@ -31,7 +31,7 @@ enum NetworkStatus {
     case connected(NetworkConnectionType)
     case disconnected
     case unknown
-    
+
     var isConnected: Bool {
         if case .connected = self {
             return true
@@ -44,23 +44,23 @@ enum NetworkStatus {
 @available(iOS 12.0, tvOS 12.0, *)
 class NetworkMonitor: ObservableObject {
     static let shared = NetworkMonitor()
-    
+
     @Published var status: NetworkStatus = .unknown
     @Published var currentBandwidth: Double = 0.0 // Mbps
     @Published var latency: TimeInterval = 0.0
-    
+
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
     private var speedTestTimer: Timer?
-    
+
     private init() {
         startMonitoring()
     }
-    
+
     deinit {
         stopMonitoring()
     }
-    
+
     private func startMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
             DispatchQueue.main.async {
@@ -68,16 +68,16 @@ class NetworkMonitor: ObservableObject {
             }
         }
         monitor.start(queue: queue)
-        
+
         // 定期进行速度和延迟测试
         startPeriodicSpeedTest()
     }
-    
+
     private func stopMonitoring() {
         monitor.cancel()
         speedTestTimer?.invalidate()
     }
-    
+
     private func updateNetworkStatus(path: NWPath) {
         switch path.status {
         case .satisfied:
@@ -94,7 +94,7 @@ class NetworkMonitor: ObservableObject {
             status = .unknown
         }
     }
-    
+
     private func getConnectionType(path: NWPath) -> NetworkConnectionType {
         if path.usesInterfaceType(.wifi) {
             return .wifi
@@ -106,15 +106,15 @@ class NetworkMonitor: ObservableObject {
             return .unknown
         }
     }
-    
+
     // MARK: - Speed and Latency Testing
-    
+
     private func startPeriodicSpeedTest() {
         speedTestTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.performSpeedTest()
         }
     }
-    
+
     private func performSpeedTest() {
         Task {
             await performLatencyTest()
@@ -122,11 +122,11 @@ class NetworkMonitor: ObservableObject {
             // await performBandwidthTest()
         }
     }
-    
+
     @MainActor
     private func performLatencyTest() async {
         let startTime = Date()
-        
+
         do {
             // 使用一个小的ping请求测试延迟
             _ = try await URLSession.shared.data(from: URL(string: "https://api.bilibili.com/x/web-interface/nav")!)
@@ -137,15 +137,15 @@ class NetworkMonitor: ObservableObject {
             Logger.warn("延迟测试失败: \(error)")
         }
     }
-    
+
     // MARK: - Network Quality Assessment
-    
+
     /// 评估网络质量
-    func getNetworkQuality() -> NetworkQuality {
+    func getNetworkQuality() -> BandwidthQuality {
         switch status {
         case .disconnected:
             return .poor
-        case .connected(let type):
+        case let .connected(type):
             if latency > 1.0 {
                 return .poor
             } else if latency > 0.5 {
@@ -159,7 +159,7 @@ class NetworkMonitor: ObservableObject {
             return .unknown
         }
     }
-    
+
     /// 获取建议的视频质量
     func getRecommendedVideoQuality() -> String {
         let quality = getNetworkQuality()
@@ -179,13 +179,13 @@ class NetworkMonitor: ObservableObject {
 }
 
 /// 网络质量枚举
-enum NetworkQuality {
+enum BandwidthQuality {
     case excellent
     case good
     case fair
     case poor
     case unknown
-    
+
     var description: String {
         switch self {
         case .excellent: return "优秀"
@@ -195,7 +195,7 @@ enum NetworkQuality {
         case .unknown: return "未知"
         }
     }
-    
+
     var color: String {
         switch self {
         case .excellent: return "green"
@@ -210,9 +210,8 @@ enum NetworkQuality {
 // MARK: - WebRequest Network Monitor Integration
 
 extension WebRequest {
-    
     /// 获取网络状态信息
-    static func getNetworkInfo() -> (status: NetworkStatus, quality: NetworkQuality, recommendedQuality: String) {
+    static func getNetworkInfo() -> (status: NetworkStatus, quality: BandwidthQuality, recommendedQuality: String) {
         if #available(iOS 12.0, tvOS 12.0, *) {
             let monitor = NetworkMonitor.shared
             return (monitor.status, monitor.getNetworkQuality(), monitor.getRecommendedVideoQuality())
@@ -220,7 +219,7 @@ extension WebRequest {
             return (.unknown, .unknown, "AUTO")
         }
     }
-    
+
     /// 检查网络连接
     static func checkNetworkConnection() -> Bool {
         let (status, _, _) = getNetworkInfo()

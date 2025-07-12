@@ -33,7 +33,7 @@ class DanmuViewPlugin: NSObject {
                 [weak self] in
                 self?.danMuView.isHidden = !$0
             }.store(in: &cancellable)
-        
+
         setupMemoryMonitoring()
     }
 
@@ -44,7 +44,7 @@ class DanmuViewPlugin: NSObject {
     private func shoot(_ model: DanmakuCellModel) {
         danMuView.shoot(danmaku: model)
     }
-    
+
     private func setupMemoryMonitoring() {
         DanmuMemoryMonitor.shared.delegate = self
         DanmuMemoryMonitor.shared.startMonitoring()
@@ -115,7 +115,7 @@ extension DanmuViewPlugin: DanmuMemoryMonitorDelegate {
     func didReceiveMemoryWarning(availableMemory: UInt64, memoryPressure: DanmuMemoryPressure) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
+
             switch memoryPressure {
             case .moderate:
                 self.danMuView.displayArea = 0.7
@@ -129,11 +129,11 @@ extension DanmuViewPlugin: DanmuMemoryMonitorDelegate {
             }
         }
     }
-    
+
     func shouldOptimizePerformance(cpuUsage: Double, frameRate: Double) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
+
             if frameRate < 30.0 {
                 self.danMuView.playingSpeed = 0.8
             } else if frameRate > 55.0 {
