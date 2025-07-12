@@ -268,6 +268,14 @@ class NetworkQualityDetector: ObservableObject {
     }
 
     private func measureLatency(to endpoint: NetworkEndpoint) async -> TimeInterval? {
+        return await withTaskCancellationHandler {
+            await performLatencyMeasurement(to: endpoint)
+        } onCancel: {
+            // Task被取消时的清理工作在performLatencyMeasurement中处理
+        }
+    }
+
+    private func performLatencyMeasurement(to endpoint: NetworkEndpoint) async -> TimeInterval? {
         let startTime = CFAbsoluteTimeGetCurrent()
 
         let connection = NWConnection(
@@ -278,21 +286,38 @@ class NetworkQualityDetector: ObservableObject {
 
         connection.start(queue: monitorQueue)
 
+        defer {
+            connection.cancel()
+        }
+
         return await withCheckedContinuation { continuation in
+            var isCompleted = false
+            let lock = NSLock()
+
             let timeoutTimer = Timer.scheduledTimer(withTimeInterval: endpoint.timeout, repeats: false) { _ in
-                connection.cancel()
+                lock.lock()
+                defer { lock.unlock() }
+
+                guard !isCompleted else { return }
+                isCompleted = true
                 continuation.resume(returning: nil)
             }
 
-            connection.stateUpdateHandler = { [timeoutTimer] state in
-                timeoutTimer.invalidate()
+            connection.stateUpdateHandler = { state in
+                lock.lock()
+                defer { lock.unlock() }
+
+                guard !isCompleted else { return }
+
                 switch state {
                 case .ready:
+                    isCompleted = true
+                    timeoutTimer.invalidate()
                     let latency = CFAbsoluteTimeGetCurrent() - startTime
-                    connection.cancel()
                     continuation.resume(returning: latency)
                 case .failed, .cancelled:
-                    connection.cancel()
+                    isCompleted = true
+                    timeoutTimer.invalidate()
                     continuation.resume(returning: nil)
                 default:
                     break

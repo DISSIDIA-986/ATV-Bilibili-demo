@@ -261,6 +261,53 @@ xcodebuild -resolvePackageDependencies
 - 添加节能模式
 - 优化检测算法效率
 
+### 13. Swift并发: CheckedContinuation重复恢复错误
+
+**问题描述**：
+```
+SWIFT TASK CONTINUATION MISUSE: measureLatency(to:) tried to resume its continuation more than once, returning nil!
+Fatal error in _Concurrency/CheckedContinuation.swift:172
+```
+
+**根本原因**：在`NetworkQualityDetector.swift`的`measureLatency`函数中，`withCheckedContinuation`的continuation可能被多次恢复：
+1. `timeoutTimer`超时时调用`continuation.resume(returning: nil)`
+2. `stateUpdateHandler`在网络状态变化时也可能调用resume
+3. 如果网络连接状态快速变化，可能导致竞态条件
+
+**修复方案**：
+使用线程安全的标志位和锁机制防止多次resume：
+```swift
+return await withCheckedContinuation { continuation in
+    var isCompleted = false
+    let lock = NSLock()
+    
+    let timeoutTimer = Timer.scheduledTimer(withTimeInterval: endpoint.timeout, repeats: false) { _ in
+        lock.lock()
+        defer { lock.unlock() }
+        
+        guard !isCompleted else { return }
+        isCompleted = true
+        continuation.resume(returning: nil)
+    }
+
+    connection.stateUpdateHandler = { state in
+        lock.lock()
+        defer { lock.unlock() }
+        
+        guard !isCompleted else { return }
+        
+        switch state {
+        case .ready:
+            isCompleted = true
+            timeoutTimer.invalidate()
+            continuation.resume(returning: latency)
+        // ...
+    }
+}
+```
+
+**文件位置**：`BilibiliLive/Request/NetworkQualityDetector.swift:270-327`
+
 ---
 
 ## 📊 修复统计
@@ -270,11 +317,12 @@ xcodebuild -resolvePackageDependencies
 | 网络问题 | 1 | 严重 |
 | tvOS兼容性 | 5 | 中等 |
 | 编译错误 | 2 | 中等 |
-| 签名配置 | 2 | 低 |
+| 签名配置 | 3 | 低 |
 | 项目配置 | 1 | 低 |
 | 架构优化 | 2 | 低 |
+| **Swift并发** | **1** | **严重** |
 
-**总计**：13个问题已修复
+**总计**：15个问题已修复
 
 ---
 
