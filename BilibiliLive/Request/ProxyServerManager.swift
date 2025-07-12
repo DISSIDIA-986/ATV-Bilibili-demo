@@ -106,19 +106,19 @@ class ProxyServerManager: ObservableObject {
             // 港澳台地区 - 高优先级
             ProxyServerConfig(
                 name: "香港节点",
-                host: "api-hk.biliapi.net",
+                host: "hk-proxy.biliroaming.com",
                 regions: ["hk", "tw", "mo"],
                 priority: 1
             ),
             ProxyServerConfig(
                 name: "台湾节点",
-                host: "api-tw.biliapi.net",
+                host: "tw-proxy.biliroaming.com",
                 regions: ["tw", "hk", "mo"],
                 priority: 2
             ),
             ProxyServerConfig(
                 name: "澳门节点",
-                host: "api-mo.biliapi.net",
+                host: "mo-proxy.biliroaming.com",
                 regions: ["mo", "hk", "tw"],
                 priority: 3
             ),
@@ -126,25 +126,25 @@ class ProxyServerManager: ObservableObject {
             // 东南亚地区
             ProxyServerConfig(
                 name: "新加坡节点",
-                host: "api-sg.biliapi.net",
+                host: "sg-proxy.biliroaming.com",
                 regions: ["sg", "my", "th", "ph"],
                 priority: 4
             ),
             ProxyServerConfig(
                 name: "泰国节点",
-                host: "api-th.biliapi.net",
+                host: "th-proxy.biliroaming.com",
                 regions: ["th", "sg", "my"],
                 priority: 5
             ),
             ProxyServerConfig(
                 name: "马来西亚节点",
-                host: "api-my.biliapi.net",
+                host: "my-proxy.biliroaming.com",
                 regions: ["my", "sg", "th"],
                 priority: 6
             ),
             ProxyServerConfig(
                 name: "菲律宾节点",
-                host: "api-ph.biliapi.net",
+                host: "ph-proxy.biliroaming.com",
                 regions: ["ph", "sg", "th"],
                 priority: 7
             ),
@@ -152,13 +152,13 @@ class ProxyServerManager: ObservableObject {
             // 东北亚地区
             ProxyServerConfig(
                 name: "日本节点",
-                host: "api-jp.biliapi.net",
+                host: "jp-proxy.biliroaming.com",
                 regions: ["jp"],
                 priority: 8
             ),
             ProxyServerConfig(
                 name: "韩国节点",
-                host: "api-kr.biliapi.net",
+                host: "kr-proxy.biliroaming.com",
                 regions: ["kr", "jp"],
                 priority: 9
             ),
@@ -166,19 +166,19 @@ class ProxyServerManager: ObservableObject {
             // 北美地区
             ProxyServerConfig(
                 name: "美国西部节点",
-                host: "api-us-west.biliapi.net",
+                host: "us-west.biliroaming.com",
                 regions: ["us", "ca"],
                 priority: 10
             ),
             ProxyServerConfig(
                 name: "美国东部节点",
-                host: "api-us-east.biliapi.net",
+                host: "us-east.biliroaming.com",
                 regions: ["us", "ca"],
                 priority: 11
             ),
             ProxyServerConfig(
                 name: "加拿大节点",
-                host: "api-ca.biliapi.net",
+                host: "ca-proxy.biliroaming.com",
                 regions: ["ca", "us"],
                 priority: 12
             ),
@@ -186,19 +186,19 @@ class ProxyServerManager: ObservableObject {
             // 欧洲地区
             ProxyServerConfig(
                 name: "英国节点",
-                host: "api-uk.biliapi.net",
+                host: "uk-proxy.biliroaming.com",
                 regions: ["uk", "de", "fr"],
                 priority: 13
             ),
             ProxyServerConfig(
                 name: "德国节点",
-                host: "api-de.biliapi.net",
+                host: "de-proxy.biliroaming.com",
                 regions: ["de", "uk", "fr"],
                 priority: 14
             ),
             ProxyServerConfig(
                 name: "法国节点",
-                host: "api-fr.biliapi.net",
+                host: "fr-proxy.biliroaming.com",
                 regions: ["fr", "uk", "de"],
                 priority: 15
             ),
@@ -206,13 +206,13 @@ class ProxyServerManager: ObservableObject {
             // 大洋洲地区
             ProxyServerConfig(
                 name: "澳大利亚节点",
-                host: "api-au.biliapi.net",
+                host: "au-proxy.biliroaming.com",
                 regions: ["au", "nz"],
                 priority: 16
             ),
             ProxyServerConfig(
                 name: "新西兰节点",
-                host: "api-nz.biliapi.net",
+                host: "nz-proxy.biliroaming.com",
                 regions: ["nz", "au"],
                 priority: 17
             ),
@@ -220,14 +220,14 @@ class ProxyServerManager: ObservableObject {
             // 备用全球节点
             ProxyServerConfig(
                 name: "全球备用节点1",
-                host: "api-global1.biliapi.net",
+                host: "global1.biliroaming.com",
                 regions: ["hk", "tw", "mo", "sg", "jp", "kr", "us", "uk"],
                 priority: 20,
                 isEnabled: false
             ),
             ProxyServerConfig(
                 name: "全球备用节点2",
-                host: "api-global2.biliapi.net",
+                host: "global2.biliroaming.com",
                 regions: ["hk", "tw", "mo", "sg", "jp", "kr", "us", "uk"],
                 priority: 21,
                 isEnabled: false
@@ -236,14 +236,14 @@ class ProxyServerManager: ObservableObject {
             // CDN 节点
             ProxyServerConfig(
                 name: "CloudFlare CDN",
-                host: "api-cf.biliapi.net",
+                host: "cf-proxy.biliroaming.com",
                 regions: ["global"],
                 priority: 25,
                 isEnabled: false
             ),
             ProxyServerConfig(
                 name: "AWS CloudFront",
-                host: "api-aws.biliapi.net",
+                host: "aws-proxy.biliroaming.com",
                 regions: ["global"],
                 priority: 26,
                 isEnabled: false
