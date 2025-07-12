@@ -217,7 +217,10 @@ class VideoPlayerViewModel {
         // 添加网络状态监控插件
         let networkMonitor = NetworkMonitorPlugin()
 
-        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, qualityAdapter, networkMonitor]
+        // 添加播放统计插件
+        let playbackStats = PlaybackStatisticsPlugin()
+
+        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, qualityAdapter, networkMonitor, playbackStats]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)
