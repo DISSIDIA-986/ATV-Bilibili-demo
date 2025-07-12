@@ -52,6 +52,11 @@ class VideoDanmuProvider: DanmuProviderProtocol {
     private static let segmentMinCap = 5
     private var segmentDanmus = [Int: [Danmu]](minimumCapacity: segmentMinCap)
     private var segmentStatuses = [Int: Any](minimumCapacity: segmentMinCap)
+    
+    private let maxCachedSegments = 5
+    private var segmentLoadTimes = [Int: TimeInterval]()
+    private var memoryPressureThreshold: Int = 10000
+    private var currentMemoryPressure: Int = 0
 
     private var lastTime: TimeInterval = 0
     private var lastSegmentIdx: Int = 0
@@ -71,6 +76,8 @@ class VideoDanmuProvider: DanmuProviderProtocol {
         upDanmus.removeAll()
         segmentDanmus.removeAll(keepingCapacity: true)
         segmentStatuses.removeAll(keepingCapacity: true)
+        segmentLoadTimes.removeAll(keepingCapacity: true)
+        currentMemoryPressure = 0
         lastTime = 0
         lastSegmentIdx = 0
         upDanmuIdx = 0
@@ -130,8 +137,12 @@ class VideoDanmuProvider: DanmuProviderProtocol {
             .map { Danmu(dm: $0) }
         models.sort { $0.time < $1.time }
         segmentDanmus[idx] = models
+        segmentLoadTimes[idx] = Date().timeIntervalSince1970
+        currentMemoryPressure += models.count
+        
+        cleanupOldSegmentsIfNeeded(currentSegment: idx)
 
-        Logger.debug("[dm] cid:\(cid!) sidx:\(idx) danmu cnt: \(dms.count)")
+        Logger.debug("[dm] cid:\(cid!) sidx:\(idx) danmu cnt: \(dms.count), memory pressure: \(currentMemoryPressure)")
     }
 
     private let advancedDuration = 30 // 提前x秒加载下段弹幕
@@ -198,5 +209,31 @@ class VideoDanmuProvider: DanmuProviderProtocol {
             onShowDanmu?(model)
             onSendTextModel.send(model)
         }
+    }
+    
+    private func cleanupOldSegmentsIfNeeded(currentSegment: Int) {
+        if currentMemoryPressure > memoryPressureThreshold || segmentDanmus.count > maxCachedSegments {
+            performMemoryCleanup(currentSegment: currentSegment)
+        }
+    }
+    
+    private func performMemoryCleanup(currentSegment: Int) {
+        let keepRange = (currentSegment - 2)...(currentSegment + 2)
+        
+        var removedSegments: [Int] = []
+        for (segment, danmus) in segmentDanmus {
+            if !keepRange.contains(segment) {
+                currentMemoryPressure -= danmus.count
+                removedSegments.append(segment)
+            }
+        }
+        
+        for segment in removedSegments {
+            segmentDanmus.removeValue(forKey: segment)
+            segmentStatuses.removeValue(forKey: segment)
+            segmentLoadTimes.removeValue(forKey: segment)
+        }
+        
+        Logger.debug("[dm] memory cleanup: removed \(removedSegments.count) segments, memory pressure: \(currentMemoryPressure)")
     }
 }
