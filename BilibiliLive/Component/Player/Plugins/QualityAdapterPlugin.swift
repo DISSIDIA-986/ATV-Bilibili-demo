@@ -308,9 +308,11 @@ class QualityAdapterPlugin: NSObject, CommonPlayerPlugin {
         if abs(currentIndex - optimalIndex) == 1 {
             if optimalIndex > currentIndex {
                 // 升级：需要更充足的带宽
-                let requiredBandwidth = QualityLevel.levels[optimalIndex].minBandwidth * 1.5
-                if bandwidth < requiredBandwidth {
-                    optimalQuality = currentQuality
+                if let qualityLevel = QualityLevel.levels.first(where: { $0.quality == optimalQuality }) {
+                    let requiredBandwidth = qualityLevel.minBandwidth * 1.5
+                    if bandwidth < requiredBandwidth {
+                        optimalQuality = currentQuality
+                    }
                 }
             } else {
                 // 降级：需要明显的网络问题
