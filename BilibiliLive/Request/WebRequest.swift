@@ -27,17 +27,22 @@ enum NoCookieSession {
 // MARK: - Enhanced Network Session Management
 
 extension WebRequest {
-    /// 获取增强的网络会话（带重试机制）
-    private static func getEnhancedSession(noCookie: Bool = false) -> Session {
-        let retryManager = NetworkRetryManager()
+    /// 共享的默认Session实例（带重试机制）
+    private static let sharedSession: Session = {
+        let config = URLSession.shared.configuration
+        return Session(configuration: config, interceptor: networkRetryManager)
+    }()
 
-        if noCookie {
-            let config = URLSessionConfiguration.ephemeral
-            config.httpShouldSetCookies = false
-            return Session(configuration: config, interceptor: retryManager)
-        } else {
-            return Session(configuration: URLSession.shared.configuration, interceptor: retryManager)
-        }
+    /// 共享的无Cookie Session实例（带重试机制）
+    private static let sharedNoCookieSession: Session = {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpShouldSetCookies = false
+        return Session(configuration: config, interceptor: networkRetryManager)
+    }()
+
+    /// 获取增强的网络会话（使用共享实例）
+    private static func getEnhancedSession(noCookie: Bool = false) -> Session {
+        return noCookie ? sharedNoCookieSession : sharedSession
     }
 
     /// 全局网络重试管理器
