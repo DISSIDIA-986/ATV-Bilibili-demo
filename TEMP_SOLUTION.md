@@ -1,12 +1,13 @@
-//
-//  DanmuMemoryMonitor.swift
-//  BilibiliLive
-//
-//  Created by Claude on 2025/7/12.
-//
+## 临时解决方案：在现有文件中添加代码
 
-import Foundation
-import UIKit
+由于项目使用了文件系统同步组，我们可以先将DanmuMemoryMonitor的代码添加到现有文件中：
+
+### 选项1：添加到 VideoDanmuProvider.swift 文件末尾
+
+在 `VideoDanmuProvider.swift` 文件的最后添加以下代码：
+
+```swift
+// MARK: - Memory Monitoring
 
 protocol DanmuMemoryMonitorDelegate: AnyObject {
     func didReceiveMemoryWarning(availableMemory: UInt64, memoryPressure: DanmuMemoryPressure)
@@ -171,3 +172,6 @@ class DanmuMemoryMonitor {
         return calculateMemoryPressure(availableMemory)
     }
 }
+```
+
+这样就可以立即测试所有功能了！

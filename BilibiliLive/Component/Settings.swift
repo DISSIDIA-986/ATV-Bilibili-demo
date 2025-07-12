@@ -49,19 +49,19 @@ enum Settings {
     static var danmuAILevel: Int32
 
     // MARK: - Network Settings
-    
+
     @UserDefault("Settings.networkAutoRetry", defaultValue: true)
     static var networkAutoRetry: Bool
-    
+
     @UserDefault("Settings.networkMaxRetryCount", defaultValue: 3)
     static var networkMaxRetryCount: Int
-    
+
     @UserDefault("Settings.networkAdaptiveTimeout", defaultValue: true)
     static var networkAdaptiveTimeout: Bool
-    
+
     @UserDefault("Settings.networkShowStatusIndicator", defaultValue: true)
     static var networkShowStatusIndicator: Bool
-    
+
     @UserDefault("Settings.networkAutoQualitySwitch", defaultValue: false)
     static var networkAutoQualitySwitch: Bool
 
@@ -118,18 +118,18 @@ enum Settings {
 
     @UserDefault("Settings.arealimit.customServer", defaultValue: "")
     static var areaLimitCustomServer: String
-    
+
     // MARK: - Enhanced Proxy Settings
-    
+
     @UserDefault("Settings.proxy.smartSelection", defaultValue: true)
     static var proxySmartSelection: Bool
-    
+
     @UserDefault("Settings.proxy.autoFailover", defaultValue: true)
     static var proxyAutoFailover: Bool
-    
+
     @UserDefault("Settings.proxy.healthCheckInterval", defaultValue: 300)
     static var proxyHealthCheckInterval: Int
-    
+
     @UserDefault("Settings.proxy.showQualityIndicator", defaultValue: true)
     static var proxyShowQualityIndicator: Bool
 
