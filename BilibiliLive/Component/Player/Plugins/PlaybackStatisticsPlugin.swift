@@ -248,6 +248,17 @@ class PlaybackStatisticsPlugin: NSObject, CommonPlayerPlugin {
 
     // MARK: - 位置更新
 
+    private func updateWatchedDuration() {
+        // 在暂停或停止时更新观看时长
+        if let lastUpdate = lastPositionUpdate {
+            let timeDelta = Date().timeIntervalSince(lastUpdate)
+            watchedDuration += timeDelta
+            lastPositionUpdate = Date()
+            currentSession?.watchedDuration = watchedDuration
+            updateOverlay()
+        }
+    }
+
     private func updatePlaybackPosition(_ position: TimeInterval) {
         let now = Date()
 
