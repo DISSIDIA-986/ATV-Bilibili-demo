@@ -1,7 +1,33 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -la)"
+      "Bash(ls -la)",
+      "Bash(find . -name \"*.swift\")",
+      "Bash(git add BilibiliLive/Request/NetworkRetryManager.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(network): 实现网络重试管理器和自适应超时机制\n\n- 新增NetworkRetryManager类实现智能重试策略\n- 支持指数退避算法避免雷群效应\n- 实现自适应超时机制基于历史性能数据\n- 添加网络性能追踪系统\n- 支持可配置的重试参数和超时设置\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Request/NetworkMonitor.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(network): 添加网络状态监控和质量评估系统\n\n- 实现NetworkMonitor类进行实时网络状态检测\n- 支持网络连接类型识别(Wi-Fi/以太网/移动网络)\n- 添加网络质量评估和延迟测试功能\n- 提供智能视频画质推荐机制\n- 集成Network框架实现现代化网络监控\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Request/WebRequest.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(network): 升级WebRequest集成智能重试和自适应超时\n\n- 替换硬编码10秒超时为自适应超时机制\n- 集成NetworkRetryManager实现智能重试\n- 添加详细的网络请求性能日志记录\n- 增强Alamofire错误映射和处理\n- 移除过时的手动会话配置代码\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Component/UI/)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(tvOS): 添加网络状态显示UI组件\n\n- 实现NetworkStatusView符合tvOS Focus Engine规范\n- 支持遥控器交互和网络状态详情展示\n- 添加NetworkStatusOverlay提供实时网络变化提醒\n- 优化10英尺体验的网络状态指示器\n- 支持网络质量可视化和颜色编码\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Component/Settings.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(settings): 添加网络优化相关设置选项\n\n- 添加网络自动重试开关配置\n- 支持最大重试次数用户自定义\n- 新增自适应超时功能开关\n- 添加网络状态指示器显示控制\n- 支持网络质量自动切换功能配置\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Tests/)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ntest(network): 添加网络优化功能完整测试套件\n\n- 新增NetworkOptimizationTests覆盖核心功能\n- 测试重试配置和自适应超时机制\n- 验证网络性能追踪器功能\n- 添加网络监控和质量评估测试\n- 包含集成测试和性能基准测试\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add docs/)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: 更新项目文档和开发规范\n\n- 优化TODO.md开发计划结构和优先级\n- 完善accomplished.md已实现功能总结\n- 添加doc-principle.md tvOS开发核心原则\n- 更新网络优化相关技术文档\n- 改进文档结构和引用格式\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Request/ProxyServerManager.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(proxy): 实现智能代理服务器管理系统\n\n- 新增ProxyServerManager支持多地区代理服务器配置\n- 实现基于质量分数的智能代理选择算法\n- 添加代理服务器健康检查和性能监控\n- 支持自动故障转移和负载均衡\n- 集成WebRequest提供智能代理API\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Component/UI/ProxySettingsView.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(tvOS): 实现代理服务器设置界面\n\n- 创建ProxySettingsView符合tvOS Focus Engine规范\n- 支持代理服务器状态可视化和质量指示\n- 实现智能代理选择开关和统计信息显示\n- 优化10英尺体验的代理配置界面\n- 添加代理服务器卡片布局和交互\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Component/UI/AddProxyServerView.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(tvOS): 添加代理服务器管理界面\n\n- 实现AddProxyServerView支持自定义代理服务器添加\n- 创建ProxyServerDetailView提供服务器详情查看\n- 添加地区选择组件和表单验证\n- 支持代理服务器连接测试和状态监控\n- 优化tvOS遥控器交互和焦点导航\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(settings): 扩展代理服务器配置选项\n\n- 添加智能代理选择开关配置\n- 支持自动故障转移功能设置\n- 新增健康检查间隔时间配置\n- 添加代理质量指示器显示控制\n- 完善代理相关用户设置体验\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Component/Video/NewVideoPlayerViewModel.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(video): 集成智能代理到地区限制内容播放\n\n- 更新NewVideoPlayerViewModel使用智能代理选择\n- 实现代理故障转移和传统代理回退机制\n- 添加详细的代理访问日志记录\n- 优化地区限制内容的访问成功率\n- 支持多代理服务器的智能切换\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add BilibiliLive/Tests/ProxyServerTests.swift)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ntest(proxy): 添加代理服务器功能完整测试套件\n\n- 新增ProxyServerTests覆盖代理核心功能\n- 测试代理服务器配置和质量评分算法\n- 验证智能代理选择和故障转移机制\n- 添加性能测试和错误处理验证\n- 包含设置集成和统计功能测试\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": []
   }
