@@ -258,6 +258,13 @@ struct ProxyServerDetailView: View {
     @State private var isTestingConnection = false
     @State private var testResult: String = ""
 
+    private static let lastCheckedFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     var body: some View {
         NavigationView {
             VStack(spacing: 30) {
@@ -342,10 +349,7 @@ struct ProxyServerDetailView: View {
                 StatCard(title: "可靠性", value: "\(Int(server.reliability * 100))%")
 
                 if let lastChecked = server.lastChecked {
-                    let formatter = DateFormatter()
-                    formatter.dateStyle = .short
-                    formatter.timeStyle = .short
-                    StatCard(title: "上次检查", value: formatter.string(from: lastChecked))
+                    StatCard(title: "上次检查", value: Self.lastCheckedFormatter.string(from: lastChecked))
                 }
             }
         }

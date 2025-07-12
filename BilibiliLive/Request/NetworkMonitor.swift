@@ -10,7 +10,7 @@ import Foundation
 import Network
 
 /// 网络连接类型
-enum NetworkConnectionType {
+enum NetworkConnectionType: Equatable {
     case wifi
     case ethernet
     case cellular
@@ -27,7 +27,7 @@ enum NetworkConnectionType {
 }
 
 /// 网络状态
-enum NetworkStatus {
+enum NetworkStatus: Equatable {
     case connected(NetworkConnectionType)
     case disconnected
     case unknown

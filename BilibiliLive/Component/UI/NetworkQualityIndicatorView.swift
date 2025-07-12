@@ -5,6 +5,7 @@
 //  Created by Claude on 2025/7/12.
 //
 
+import Network
 import SwiftUI
 
 /// 网络质量指示器视图
@@ -109,7 +110,7 @@ struct NetworkQualityDetailView: View {
             }
             .padding()
             .navigationTitle("网络质量")
-            .navigationBarTitleDisplayMode(.inline)
+            // .navigationBarTitleDisplayMode(.inline) // Not available on tvOS
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("关闭") {
@@ -211,7 +212,7 @@ struct NetworkQualityDetailView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    Text(connectionTypeString(metrics.connectionType))
+                    Text(metrics.connectionType)
                         .font(.body)
                         .fontWeight(.medium)
                 }
@@ -219,14 +220,14 @@ struct NetworkQualityDetailView: View {
                 Spacer()
 
                 VStack(spacing: 4) {
-                    if metrics.isConstrained {
-                        Label("受限网络", systemImage: "exclamationmark.circle.fill")
+                    if metrics.packetLoss > 0.05 {
+                        Label("网络不稳定", systemImage: "exclamationmark.circle.fill")
                             .font(.caption)
                             .foregroundColor(.orange)
                     }
 
-                    if metrics.isExpensive {
-                        Label("付费网络", systemImage: "dollarsign.circle.fill")
+                    if metrics.downloadSpeed < 5.0 {
+                        Label("低速网络", systemImage: "dollarsign.circle.fill")
                             .font(.caption)
                             .foregroundColor(.red)
                     }
@@ -269,13 +270,13 @@ struct NetworkQualityDetailView: View {
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(.systemGray6))
+                    .fill(Color.gray.opacity(0.1))
             )
 
             // 趋势信息
             let (latencyTrend, bandwidthTrend) = detector.getQualityTrend()
 
-            if latencyTrend != 0 || bandwidthTrend != 0 {
+            if latencyTrend != "→" || bandwidthTrend != "→" {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("延迟趋势")
@@ -283,10 +284,10 @@ struct NetworkQualityDetailView: View {
                             .foregroundColor(.secondary)
 
                         HStack {
-                            Image(systemName: latencyTrend > 0 ? "arrow.up" : "arrow.down")
-                                .foregroundColor(latencyTrend > 0 ? .red : .green)
+                            Image(systemName: latencyTrend == "↑" ? "arrow.up" : "arrow.down")
+                                .foregroundColor(latencyTrend == "↑" ? .red : .green)
 
-                            Text(latencyTrend > 0 ? "增加" : "改善")
+                            Text(latencyTrend == "↑" ? "增加" : "改善")
                                 .font(.body)
                         }
                     }
@@ -299,18 +300,18 @@ struct NetworkQualityDetailView: View {
                             .foregroundColor(.secondary)
 
                         HStack {
-                            Text(bandwidthTrend > 0 ? "提升" : "下降")
+                            Text(bandwidthTrend == "↑" ? "提升" : "下降")
                                 .font(.body)
 
-                            Image(systemName: bandwidthTrend > 0 ? "arrow.up" : "arrow.down")
-                                .foregroundColor(bandwidthTrend > 0 ? .green : .red)
+                            Image(systemName: bandwidthTrend == "↑" ? "arrow.up" : "arrow.down")
+                                .foregroundColor(bandwidthTrend == "↑" ? .green : .red)
                         }
                     }
                 }
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.systemGray6))
+                        .fill(Color.gray.opacity(0.1))
                 )
             }
         }
@@ -435,7 +436,7 @@ struct QualityProgressBar: View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(.systemGray5))
+                    .fill(Color(.systemGray))
                     .frame(height: 8)
 
                 RoundedRectangle(cornerRadius: 4)

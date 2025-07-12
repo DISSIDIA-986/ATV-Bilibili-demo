@@ -247,6 +247,12 @@ class DanmakuFloatingTrack: NSObject, DanmakuTrack, CAAnimationDelegate {
             cells.removeFirst(excessCount)
         }
     }
+
+    private func prepare(danmaku: DanmakuCell) {
+        danmaku.animationTime = 0
+        danmaku.animationBeginTime = 0
+        danmaku.layer.opacity = 1
+    }
 }
 
 // MARK: DanmakuVerticalTrack
@@ -369,20 +375,20 @@ class DanmakuVerticalTrack: NSObject, DanmakuTrack, CAAnimationDelegate {
                 stopClosure?(cell)
             }
         }
-        
+
         cleanupExcessCellsIfNeeded()
     }
-    
+
     private func cleanupExcessCellsIfNeeded() {
         if cells.count > maxCellsInTrack {
             let excessCount = cells.count - maxCellsInTrack
             let cellsToRemove = Array(cells.prefix(excessCount))
-            
+
             for cell in cellsToRemove {
                 cell.removeFromSuperview()
                 cell.layer.removeAllAnimations()
             }
-            
+
             cells.removeFirst(excessCount)
         }
     }
@@ -402,10 +408,10 @@ class DanmakuVerticalTrack: NSObject, DanmakuTrack, CAAnimationDelegate {
         animation.setValue(danmaku, forKey: DANMAKU_CELL_KEY)
         danmaku.layer.add(animation, forKey: TOP_ANIMATION_KEY)
     }
-}
 
-func prepare(danmaku: DanmakuCell) {
-    danmaku.animationTime = 0
-    danmaku.animationBeginTime = 0
-    danmaku.layer.opacity = 1
+    private func prepare(danmaku: DanmakuCell) {
+        danmaku.animationTime = 0
+        danmaku.animationBeginTime = 0
+        danmaku.layer.opacity = 1
+    }
 }
