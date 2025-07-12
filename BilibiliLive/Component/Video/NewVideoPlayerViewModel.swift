@@ -207,6 +207,37 @@ extension VideoPlayerViewModel {
     }
 
     private func requestAreaLimitPcgPlayUrl(epid: Int, cid: Int, areaList: [String]) async throws -> VideoPlayURLInfo? {
+        // 优先使用智能代理选择
+        if Settings.proxySmartSelection {
+            for area in areaList {
+                do {
+                    Logger.info("尝试使用智能代理访问地区限制内容 - 地区: \(area)")
+                    return try await WebRequest.requestAreaLimitPcgPlayUrlSmart(epid: epid, cid: cid, area: area)
+                } catch let err {
+                    Logger.warn("智能代理访问失败 - 地区: \(area), 错误: \(err)")
+                    
+                    // 如果启用了自动故障转移，尝试下一个地区
+                    if Settings.proxyAutoFailover && area != areaList.last {
+                        continue
+                    }
+                    
+                    // 如果是最后一个地区或未启用故障转移，回退到传统方式
+                    if area == areaList.last {
+                        Logger.info("所有地区的智能代理都失败，回退到传统代理方式")
+                        return try await fallbackToLegacyProxy(epid: epid, cid: cid, areaList: areaList)
+                    }
+                }
+            }
+        } else {
+            // 使用传统的单一代理服务器方式
+            return try await fallbackToLegacyProxy(epid: epid, cid: cid, areaList: areaList)
+        }
+        
+        return nil
+    }
+    
+    /// 回退到传统代理方式
+    private func fallbackToLegacyProxy(epid: Int, cid: Int, areaList: [String]) async throws -> VideoPlayURLInfo? {
         for area in areaList {
             do {
                 return try await WebRequest.requestAreaLimitPcgPlayUrl(epid: epid, cid: cid, area: area)
@@ -214,7 +245,7 @@ extension VideoPlayerViewModel {
                 if area == areaList.last {
                     throw err
                 } else {
-                    print(err)
+                    Logger.warn("传统代理访问失败 - 地区: \(area), 错误: \(err)")
                 }
             }
         }
