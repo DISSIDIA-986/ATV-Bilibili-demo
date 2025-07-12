@@ -200,18 +200,21 @@ Your team has no devices from which to generate a provisioning profile. Connect 
 
 No profiles for 'com.niuyp.BilibiliLive.demo' were found
 Xcode couldn't find any tvOS App Development provisioning profiles matching 'com.niuyp.BilibiliLive.demo'.
+
+"BilibiliLive" requires a provisioning profile. Select a provisioning profile in the Signing & Capabilities editor.
 ```
 
 **根本原因**：设置了自动签名但没有注册设备，且只需要在模拟器中测试。
 
 **修复方案**：
-配置为仅模拟器签名，不需要真机描述文件：
+配置为仅模拟器签名，完全禁用描述文件要求：
 ```
 CODE_SIGN_STYLE = Manual;
-"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "-";
+"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "";
+"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvsimulator*]" = "";
 ```
 
-这样配置后在模拟器中不需要任何签名配置。
+移除通用的PROVISIONING_PROFILE_SPECIFIER设置，这样配置后在模拟器中完全不需要任何签名配置。
 
 ---
 
