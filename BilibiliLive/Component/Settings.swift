@@ -48,6 +48,23 @@ enum Settings {
     @UserDefaultCodable("Settings.danmuAILevel", defaultValue: 1)
     static var danmuAILevel: Int32
 
+    // MARK: - Network Settings
+    
+    @UserDefault("Settings.networkAutoRetry", defaultValue: true)
+    static var networkAutoRetry: Bool
+    
+    @UserDefault("Settings.networkMaxRetryCount", defaultValue: 3)
+    static var networkMaxRetryCount: Int
+    
+    @UserDefault("Settings.networkAdaptiveTimeout", defaultValue: true)
+    static var networkAdaptiveTimeout: Bool
+    
+    @UserDefault("Settings.networkShowStatusIndicator", defaultValue: true)
+    static var networkShowStatusIndicator: Bool
+    
+    @UserDefault("Settings.networkAutoQualitySwitch", defaultValue: false)
+    static var networkAutoQualitySwitch: Bool
+
     @UserDefaultCodable("Settings.danmuDuration", defaultValue: 8)
     static var danmuDuration: Double
 
