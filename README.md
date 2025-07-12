@@ -65,7 +65,9 @@ open BilibiliLive.xcodeproj
 ./scripts/test_network_quality.sh
 ```
 
-更多详细信息请参考 [部署文档](docs/DEPLOYMENT.md)
+更多详细信息请参考：
+- [部署文档](docs/DEPLOYMENT.md) - 本地开发环境搭建
+- [IPA签名指南](docs/IPA_SIGNING.md) - 开发者账号签名分发
 
 
 

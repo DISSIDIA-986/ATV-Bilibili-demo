@@ -47,6 +47,15 @@ open BilibiliLive.xcodeproj
 ./scripts/test_network_quality.sh
 ```
 
+### IPA 签名准备
+```bash
+# 检查签名环境
+./scripts/check_signing.sh
+
+# 配置并运行签名
+./scripts/sign_ipa.sh
+```
+
 ### 依赖管理
 ```bash
 # 更新 Swift Package 依赖
