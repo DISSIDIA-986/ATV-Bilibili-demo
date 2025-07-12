@@ -101,7 +101,7 @@ class ProxyServerManager: ObservableObject {
         }
     }
 
-    private func createDefaultServers() -> [ProxyServerConfig] {
+    func createDefaultServers() -> [ProxyServerConfig] {
         return [
             // 港澳台地区 - 高优先级
             ProxyServerConfig(
@@ -458,7 +458,7 @@ class ProxyServerManager: ObservableObject {
     }
 
     @MainActor
-    private func performHealthCheck() async {
+    func performHealthCheck() async {
         Logger.info("开始代理服务器健康检查")
 
         await withTaskGroup(of: Void.self) { group in

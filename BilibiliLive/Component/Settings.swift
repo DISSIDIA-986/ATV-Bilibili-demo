@@ -62,6 +62,9 @@ enum Settings {
     @UserDefault("Settings.networkShowStatusIndicator", defaultValue: true)
     static var networkShowStatusIndicator: Bool
 
+    @UserDefault("Settings.showNetworkQualityIndicator", defaultValue: true)
+    static var showNetworkQualityIndicator: Bool
+
     @UserDefault("Settings.networkAutoQualitySwitch", defaultValue: false)
     static var networkAutoQualitySwitch: Bool
 

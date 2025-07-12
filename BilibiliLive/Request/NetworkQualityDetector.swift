@@ -65,6 +65,7 @@ struct NetworkQualityMetrics {
     let packetLoss: Double
     let jitter: TimeInterval
     let timestamp: Date
+    let connectionType: String
 
     var qualityScore: Double {
         var score: Double = 0
@@ -114,6 +115,10 @@ struct NetworkQualityMetrics {
 
     var quality: NetworkQualityLevel {
         return NetworkQualityLevel.from(score: qualityScore)
+    }
+
+    var bandwidth: Double {
+        return downloadSpeed
     }
 }
 
@@ -236,7 +241,8 @@ class NetworkQualityDetector: ObservableObject {
             uploadSpeed: uploadSpeed,
             packetLoss: packetLoss,
             jitter: jitter,
-            timestamp: Date()
+            timestamp: Date(),
+            connectionType: "Unknown" // Simple implementation
         )
     }
 
@@ -384,4 +390,47 @@ class NetworkQualityDetector: ObservableObject {
     func shouldUseAlternativeServer() -> Bool {
         return currentQuality == .poor || currentQuality == .unknown
     }
+
+    func getRecommendedNetworkConfig() -> NetworkConfig {
+        let timeout: TimeInterval
+        let retryCount: Int
+
+        switch currentQuality {
+        case .excellent:
+            timeout = 10.0
+            retryCount = 2
+        case .good:
+            timeout = 15.0
+            retryCount = 3
+        case .fair:
+            timeout = 20.0
+            retryCount = 4
+        case .poor:
+            timeout = 30.0
+            retryCount = 5
+        case .unknown:
+            timeout = 25.0
+            retryCount = 4
+        }
+
+        return NetworkConfig(timeout: timeout, retryCount: retryCount)
+    }
+
+    func triggerDetection() {
+        Task {
+            await performQualityDetection()
+        }
+    }
+
+    func getQualityTrend() -> (latencyTrend: String, bandwidthTrend: String) {
+        // Simple implementation - in a real app, this would analyze historical data
+        let latencyTrend = currentQuality.rawValue > 2 ? "↑" : currentQuality.rawValue == 2 ? "→" : "↓"
+        let bandwidthTrend = currentQuality.rawValue > 2 ? "↑" : currentQuality.rawValue == 2 ? "→" : "↓"
+        return (latencyTrend, bandwidthTrend)
+    }
+}
+
+struct NetworkConfig {
+    let timeout: TimeInterval
+    let retryCount: Int
 }
