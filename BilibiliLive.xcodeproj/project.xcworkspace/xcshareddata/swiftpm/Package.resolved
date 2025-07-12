@@ -61,7 +61,7 @@
       "location" : "https://github.com/cbpowell/MarqueeLabel",
       "state" : {
         "branch" : "master",
-        "revision" : "877e810534cda9afabb8143ae319b7c3341b121b"
+        "revision" : "18e4787f4dc1c26d2d581c4bc9aeae34686eeeae"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-protobuf.git",
       "state" : {
-        "revision" : "d72aed98f8253ec1aa9ea1141e28150f408cf17f",
-        "version" : "1.29.0"
+        "revision" : "102a647b573f60f73afdce5613a51d71349fe507",
+        "version" : "1.30.0"
       }
     },
     {
