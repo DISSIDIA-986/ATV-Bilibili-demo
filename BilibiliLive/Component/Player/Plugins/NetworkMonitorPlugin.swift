@@ -384,7 +384,7 @@ enum NetworkConnectionStatus: String, CaseIterable {
     }
 }
 
-enum NetworkType: String, CaseIterable {
+enum NetworkType: String, CaseIterable, Codable {
     case wifi = "WiFi"
     case cellular = "蜂窝网络"
     case ethernet = "以太网"

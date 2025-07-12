@@ -284,7 +284,7 @@ class NetworkQualityDetector: ObservableObject {
                 continuation.resume(returning: nil)
             }
 
-            connection.stateUpdateHandler = { state in
+            connection.stateUpdateHandler = { [timeoutTimer] state in
                 timeoutTimer.invalidate()
                 switch state {
                 case .ready:
