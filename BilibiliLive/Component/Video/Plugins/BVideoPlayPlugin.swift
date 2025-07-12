@@ -11,9 +11,29 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
     private weak var playerVC: AVPlayerViewController?
     private var playerDelegate: BilibiliVideoResourceLoaderDelegate?
     private let playData: PlayerDetailData
+    private var adaptationSeekTime: CMTime?
 
     init(detailData: PlayerDetailData) {
         playData = detailData
+        super.init()
+        setupAdaptationListener()
+    }
+
+    private func setupAdaptationListener() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleQualityAdaptationRequested(_:)),
+            name: .init("QualityAdaptationRequested"),
+            object: nil
+        )
+    }
+
+    @objc private func handleQualityAdaptationRequested(_ notification: Notification) {
+        if let userInfo = notification.userInfo,
+           let currentTime = userInfo["currentTime"] as? CMTime
+        {
+            adaptationSeekTime = currentTime
+        }
     }
 
     func playerDidLoad(playerVC: AVPlayerViewController) {
@@ -26,7 +46,12 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
     }
 
     func playerWillStart(player: AVPlayer) {
-        if let playerStartPos = playData.playerStartPos {
+        // 优先使用画质自适应的seek时间
+        if let seekTime = adaptationSeekTime {
+            player.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
+            adaptationSeekTime = nil // 清除已使用的seek时间
+            Logger.info("画质切换后恢复播放位置: \(seekTime.seconds)秒")
+        } else if let playerStartPos = playData.playerStartPos {
             player.seek(to: CMTime(seconds: Double(playerStartPos), preferredTimescale: 1), toleranceBefore: .zero, toleranceAfter: .zero)
         }
     }
@@ -34,6 +59,10 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
     func playerDidDismiss(playerVC: AVPlayerViewController) {
         guard let currentTime = playerVC.player?.currentTime().seconds, currentTime > 0 else { return }
         WebRequest.reportWatchHistory(aid: playData.aid, cid: playData.cid, currentTime: Int(currentTime))
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     @MainActor
