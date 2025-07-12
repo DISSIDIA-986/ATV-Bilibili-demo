@@ -118,6 +118,20 @@ enum Settings {
 
     @UserDefault("Settings.arealimit.customServer", defaultValue: "")
     static var areaLimitCustomServer: String
+    
+    // MARK: - Enhanced Proxy Settings
+    
+    @UserDefault("Settings.proxy.smartSelection", defaultValue: true)
+    static var proxySmartSelection: Bool
+    
+    @UserDefault("Settings.proxy.autoFailover", defaultValue: true)
+    static var proxyAutoFailover: Bool
+    
+    @UserDefault("Settings.proxy.healthCheckInterval", defaultValue: 300)
+    static var proxyHealthCheckInterval: Int
+    
+    @UserDefault("Settings.proxy.showQualityIndicator", defaultValue: true)
+    static var proxyShowQualityIndicator: Bool
 
     @UserDefault("Settings.ui.sideMenuAutoSelectChange", defaultValue: false)
     static var sideMenuAutoSelectChange: Bool
