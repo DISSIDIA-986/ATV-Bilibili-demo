@@ -192,6 +192,9 @@ public class DanmakuView: UIView {
 
     private var bottomTracks: [DanmakuTrack] = []
 
+    // 碰撞检测优化器
+    private var collisionOptimizer: DanmuCollisionOptimizer?
+
     private var viewHeight: CGFloat {
         return bounds.height * displayArea
     }
@@ -200,10 +203,40 @@ public class DanmakuView: UIView {
         super.init(frame: frame)
         createPoolIfNeed()
         recaculateTracks()
+
+        // 初始化文字渲染优化系统
+        initializeTextRenderingOptimization()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        createPoolIfNeed()
+        recaculateTracks()
+
+        // 初始化文字渲染优化系统
+        initializeTextRenderingOptimization()
+    }
+
+    /// 初始化文字渲染优化系统
+    private func initializeTextRenderingOptimization() {
+        // 触发字体管理器和文字渲染器的初始化
+        _ = DanmuFontManager.shared
+        _ = DanmuTextRenderer.shared
+
+        // 初始化碰撞检测优化器
+        initializeCollisionOptimizer()
+
+        Logger.debug("弹幕文字渲染优化系统初始化完成")
+    }
+
+    /// 初始化碰撞检测优化器
+    private func initializeCollisionOptimizer() {
+        let maxDanmuSize = CGSize(width: 200, height: Settings.danmuSize.size * 1.5)
+        collisionOptimizer = DanmuCollisionOptimizer(
+            viewWidth: bounds.width,
+            viewHeight: bounds.height,
+            maxDanmuSize: maxDanmuSize
+        )
     }
 
     override public func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -290,6 +323,19 @@ public extension DanmakuView {
         recaculateFloatingTracks()
         recaculateTopTracks()
         recaculateBottomTracks()
+
+        // 更新碰撞优化器的视图尺寸
+        updateCollisionOptimizerSize()
+    }
+
+    /// 更新碰撞优化器的视图尺寸
+    private func updateCollisionOptimizerSize() {
+        let maxDanmuSize = CGSize(width: 200, height: Settings.danmuSize.size * 1.5)
+        collisionOptimizer?.updateViewSize(
+            width: bounds.width,
+            height: bounds.height,
+            maxDanmuSize: maxDanmuSize
+        )
     }
 
     func play() {
@@ -331,6 +377,10 @@ public extension DanmakuView {
         for bottomTrack in bottomTracks {
             bottomTrack.stop()
         }
+
+        // 清理碰撞优化器数据
+        collisionOptimizer?.clear()
+
         status = .stop
     }
 
@@ -441,7 +491,9 @@ private extension DanmakuView {
         let diffFloatingTrackCount = trackCount - floatingTracks.count
         if diffFloatingTrackCount > 0 {
             for _ in 0..<diffFloatingTrackCount {
-                floatingTracks.append(DanmakuFloatingTrack(view: self))
+                // 使用优化版轨道
+                let track = DanmakuTrackFactory.createFloatingTrack(view: self, optimizer: collisionOptimizer)
+                floatingTracks.append(track)
             }
         } else if diffFloatingTrackCount < 0 {
             for i in max(0, floatingTracks.count + diffFloatingTrackCount)..<floatingTracks.count {
@@ -467,7 +519,9 @@ private extension DanmakuView {
         let diffFloatingTrackCount = trackCount - topTracks.count
         if diffFloatingTrackCount > 0 {
             for _ in 0..<diffFloatingTrackCount {
-                topTracks.append(DanmakuVerticalTrack(view: self))
+                // 使用优化版轨道
+                let track = DanmakuTrackFactory.createVerticalTrack(view: self, optimizer: collisionOptimizer)
+                topTracks.append(track)
             }
         } else if diffFloatingTrackCount < 0 {
             for i in max(0, topTracks.count + diffFloatingTrackCount)..<topTracks.count {
@@ -493,7 +547,9 @@ private extension DanmakuView {
         let diffFloatingTrackCount = trackCount - bottomTracks.count
         if diffFloatingTrackCount > 0 {
             for _ in 0..<diffFloatingTrackCount {
-                bottomTracks.insert(DanmakuVerticalTrack(view: self), at: 0)
+                // 使用优化版轨道
+                let track = DanmakuTrackFactory.createVerticalTrack(view: self, optimizer: collisionOptimizer)
+                bottomTracks.insert(track, at: 0)
             }
         } else if diffFloatingTrackCount < 0 {
             for i in 0..<min(bottomTracks.count, abs(diffFloatingTrackCount)) {
