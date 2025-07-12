@@ -183,6 +183,8 @@ public class DanmakuView: UIView {
     }
 
     private var danmakuPool: [String: [DanmakuCell]] = [:]
+    private let maxPoolSize = 100
+    private var currentPoolCount = 0
 
     private var floatingTracks: [DanmakuTrack] = []
 
@@ -608,10 +610,12 @@ private extension DanmakuView {
             cell?.model = danmaku
             let tap = UITapGestureRecognizer(target: self, action: #selector(danmakuDidTap(_:)))
             cell?.addGestureRecognizer(tap)
+            currentPoolCount += 1
         } else {
             cell?.frame = frame
             cell?.model = danmaku
             delegate?.danmakuView(self, dequeueReusable: cell!)
+            currentPoolCount -= 1
         }
         return cell
     }
@@ -620,9 +624,35 @@ private extension DanmakuView {
         guard enableCellReusable else { return }
         guard let cs = cell.model?.cellClass else { return }
         delegate?.danmakuView(self, didEndDisplaying: cell)
+        
+        if currentPoolCount >= maxPoolSize {
+            cleanupPool()
+        }
+        
         guard var array = danmakuPool[NSStringFromClass(cs)] else { return }
         array.append(cell)
+        currentPoolCount += 1
         danmakuPool[NSStringFromClass(cs)] = array
+    }
+    
+    private func cleanupPool() {
+        let halfCapacity = maxPoolSize / 2
+        var removedCount = 0
+        
+        for (key, cells) in danmakuPool {
+            if cells.count > 5 {
+                let toRemove = min(cells.count - 3, halfCapacity - removedCount)
+                let updatedCells = Array(cells.dropFirst(toRemove))
+                danmakuPool[key] = updatedCells
+                removedCount += toRemove
+                
+                if removedCount >= halfCapacity {
+                    break
+                }
+            }
+        }
+        
+        currentPoolCount = danmakuPool.values.reduce(0) { $0 + $1.count }
     }
 
     @objc

@@ -77,6 +77,7 @@ class DanmakuFloatingTrack: NSObject, DanmakuTrack, CAAnimationDelegate {
     var playingSpeed: Float = 1.0
 
     private var cells: [DanmakuCell] = []
+    private let maxCellsInTrack = 50
 
     private weak var view: UIView?
 
@@ -230,109 +231,7 @@ class DanmakuFloatingTrack: NSObject, DanmakuTrack, CAAnimationDelegate {
         animation.setValue(danmaku, forKey: DANMAKU_CELL_KEY)
         danmaku.layer.add(animation, forKey: FLOATING_ANIMATION_KEY)
     }
-}
-
-// MARK: DanmakuVerticalTrack
-
-class DanmakuVerticalTrack: NSObject, DanmakuTrack, CAAnimationDelegate {
-    var positionY: CGFloat = 0 {
-        didSet {
-            for cell in cells {
-                cell.layer.position = CGPoint(x: view!.bounds.width / 2.0, y: positionY)
-            }
-        }
-    }
-
-    var index: UInt = 0
-
-    var stopClosure: ((_ cell: DanmakuCell) -> Void)?
-
-    var isOverlap: Bool = false
-
-    var danmakuCount: Int {
-        return cells.count
-    }
-
-    var cells: [DanmakuCell] = []
-
-    var playingSpeed: Float = 1.0
-
-    private weak var view: UIView?
-
-    required init(view: UIView) {
-        self.view = view
-    }
-
-    func shoot(danmaku: DanmakuCell) {
-        cells.append(danmaku)
-        danmaku.layer.position = CGPoint(x: view!.bounds.width / 2.0, y: positionY)
-        danmaku.model?.track = index
-        prepare(danmaku: danmaku)
-        addAnimation(to: danmaku)
-    }
-
-    func canShoot(danmaku: DanmakuCellModel) -> Bool {
-        return isOverlap ? true : cells.count == 0
-    }
-
-    func play() {
-        for cell in cells {
-            addAnimation(to: cell)
-        }
-    }
-
-    func play(_ danmaku: DanmakuCellModel) -> Bool {
-        guard let findCell = cells.first(where: { c -> Bool in
-            return c.model?.isEqual(to: danmaku) ?? false
-        }) else { return false }
-        addAnimation(to: findCell)
-        return true
-    }
-
-    func pause() {
-        for cell in cells {
-            cell.layer.removeAllAnimations()
-        }
-    }
-
-    func pause(_ danmaku: DanmakuCellModel) -> Bool {
-        guard let findCell = cells.first(where: { c -> Bool in
-            return c.model?.isEqual(to: danmaku) ?? false
-        }) else { return false }
-        findCell.layer.removeAllAnimations()
-        return true
-    }
-
-    func stop() {
-        for cell in cells {
-            cell.removeFromSuperview()
-            cell.layer.removeAllAnimations()
-        }
-        cells.removeAll()
-    }
-
-    func sync(_ danmaku: DanmakuCell, at progress: Float) {
-        guard let model = danmaku.model else { return }
-        cells.append(danmaku)
-        danmaku.animationTime = model.displayTime * Double(progress)
-        danmaku.model?.track = index
-        danmaku.layer.position = CGPoint(x: view!.bounds.width / 2.0, y: positionY)
-        danmaku.layer.opacity = 1
-    }
-
-    func syncAndPlay(_ danmaku: DanmakuCell, at progress: Float) {
-        sync(danmaku, at: progress)
-        addAnimation(to: danmaku)
-    }
-
-    func canSync(_ danmaku: DanmakuCellModel, at progress: Float) -> Bool {
-        return cells.isEmpty
-    }
-
-    func clean() {
-        stop()
-    }
-
+    
     func animationDidStop(_ anim: CAAnimation, finished flag: Bool) {
         guard let danmaku = anim.value(forKey: DANMAKU_CELL_KEY) as? DanmakuCell else { return }
         danmaku.animationTime += (CFAbsoluteTimeGetCurrent() - danmaku.animationBeginTime) * Double(playingSpeed)
@@ -350,6 +249,22 @@ class DanmakuVerticalTrack: NSObject, DanmakuTrack, CAAnimationDelegate {
                 danmaku.frame.origin.x = MAX_FLOAT_X
                 stopClosure?(cell)
             }
+        }
+        
+        cleanupExcessCellsIfNeeded()
+    }
+    
+    private func cleanupExcessCellsIfNeeded() {
+        if cells.count > maxCellsInTrack {
+            let excessCount = cells.count - maxCellsInTrack
+            let cellsToRemove = Array(cells.prefix(excessCount))
+            
+            for cell in cellsToRemove {
+                cell.removeFromSuperview()
+                cell.layer.removeAllAnimations()
+            }
+            
+            cells.removeFirst(excessCount)
         }
     }
 
