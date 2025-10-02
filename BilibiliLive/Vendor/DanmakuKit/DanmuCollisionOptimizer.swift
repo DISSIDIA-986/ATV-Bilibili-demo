@@ -32,10 +32,20 @@ class DanmuCollisionOptimizer {
         }
 
         func getGridIndices(for rect: CGRect) -> [(col: Int, row: Int)] {
+            // 处理无效矩形
+            guard rect.width > 0 && rect.height > 0 else {
+                return []
+            }
+
             let minCol = max(0, Int(rect.minX / cellWidth))
             let maxCol = min(cols - 1, Int(rect.maxX / cellWidth))
             let minRow = max(0, Int(rect.minY / cellHeight))
             let maxRow = min(rows - 1, Int(rect.maxY / cellHeight))
+
+            // 确保范围有效
+            guard minCol <= maxCol && minRow <= maxRow else {
+                return []
+            }
 
             var indices: [(col: Int, row: Int)] = []
             for col in minCol...maxCol {

@@ -15,27 +15,55 @@ cd "$(dirname "$0")/.."
 echo "清理之前的构建..."
 xcodebuild clean -project BilibiliLive.xcodeproj -scheme BilibiliLive
 
-# 构建项目 - tvOS Simulator
-echo "构建 tvOS Simulator 版本..."
-xcodebuild build \
+# 创建输出目录
+OUTPUT_DIR="./build"
+mkdir -p "$OUTPUT_DIR"
+
+# Archive 项目用于生成 IPA
+echo "📦 Archive 项目用于 IPA..."
+xcodebuild archive \
     -project BilibiliLive.xcodeproj \
     -scheme BilibiliLive \
-    -destination 'platform=tvOS Simulator,name=Apple TV' \
-    -configuration Debug
+    -destination 'generic/platform=tvOS' \
+    -archivePath "$OUTPUT_DIR/BilibiliLive.xcarchive" \
+    -configuration Release \
+    CODE_SIGN_IDENTITY="" \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGN_ENTITLEMENTS="" \
+    CODE_SIGNING_ALLOWED=NO
 
-echo "✅ tvOS Simulator 构建完成"
-
-# 如果有连接的 Apple TV 设备，也构建真机版本
-if xcrun devicectl list devices | grep -q "Apple TV"; then
-    echo "检测到 Apple TV 设备，构建真机版本..."
-    xcodebuild build \
-        -project BilibiliLive.xcodeproj \
-        -scheme BilibiliLive \
-        -destination 'generic/platform=tvOS' \
-        -configuration Debug
-    echo "✅ Apple TV 设备版本构建完成"
+if [ $? -ne 0 ]; then
+    echo "❌ Archive 失败"
+    exit 1
 fi
 
-echo ""
-echo "🎉 项目构建完成！"
-echo "可以在 Xcode 中运行项目了"
+echo "✅ Archive 完成"
+
+# 手动创建 IPA
+APP_PATH="$OUTPUT_DIR/BilibiliLive.xcarchive/Products/Applications/BilibiliLive.app"
+
+if [ ! -d "$APP_PATH" ]; then
+    echo "❌ 找不到编译的应用文件: $APP_PATH"
+    exit 1
+fi
+
+echo "📱 创建 IPA 包..."
+cd "$OUTPUT_DIR"
+mkdir -p Payload
+cp -R "BilibiliLive.xcarchive/Products/Applications/BilibiliLive.app" Payload/
+zip -r "BilibiliLive.ipa" Payload/
+rm -rf Payload/
+
+# 验证 IPA 文件
+if [ -f "BilibiliLive.ipa" ]; then
+    IPA_SIZE=$(du -h "BilibiliLive.ipa" | cut -f1)
+    echo ""
+    echo "🎉 IPA 文件生成成功！"
+    echo "📁 文件位置: $(pwd)/BilibiliLive.ipa"
+    echo "📏 文件大小: $IPA_SIZE"
+    echo ""
+    echo "🔧 接下来可以用 Sideloadly 签名这个 IPA 文件"
+else
+    echo "❌ IPA 文件生成失败"
+    exit 1
+fi

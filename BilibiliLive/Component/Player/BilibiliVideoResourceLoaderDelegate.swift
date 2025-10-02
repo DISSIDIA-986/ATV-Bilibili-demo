@@ -42,12 +42,22 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
     private(set) var playInfo: VideoPlayURLInfo?
     private var hasSubtitle = false
     private var hasPreferSubtitleAdded = false
-    private var httpServer = HttpServer()
+    private var httpServer: HttpServer?
     private var aid = 0
     private(set) var httpPort = 0
     private(set) var isHDR = false
+    private var isTvOS: Bool {
+        #if os(tvOS)
+            return true
+        #else
+            return false
+        #endif
+    }
+
+    private var httpServerEnabled = false
+
     deinit {
-        httpServer.stop()
+        httpServer?.stop()
     }
 
     var infoDebugText: String {
@@ -243,7 +253,16 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         playInfo = info
         self.aid = aid
         reset()
-        hasSubtitle = subtitles.count > 0
+
+        // tvOS 暂时禁用字幕功能以避免 HTTP Server 崩溃
+        hasSubtitle = isTvOS ? false : (subtitles.count > 0)
+
+        if hasSubtitle && !isTvOS {
+            Logger.info("字幕功能已启用,准备启动 HTTP Server")
+        } else if isTvOS && subtitles.count > 0 {
+            Logger.warn("tvOS 平台暂不支持字幕功能,已禁用")
+        }
+
         var videos = info.dash.video
         if Settings.preferAvc {
             let videosMap = Dictionary(grouping: videos, by: { $0.id })
@@ -280,14 +299,28 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
             }
         }
 
-        if hasSubtitle {
-            try? httpServer.start(0)
-            bindHttpServer()
-            httpPort = (try? httpServer.port()) ?? 0
+        // 仅在非 tvOS 且有字幕时启动 HTTP Server
+        if hasSubtitle && !isTvOS {
+            do {
+                httpServer = HttpServer()
+                try httpServer?.start(0)
+                bindHttpServer()
+                httpPort = (try? httpServer?.port()) ?? 0
+                httpServerEnabled = true
+                Logger.info("HTTP Server 启动成功,端口: \(httpPort)")
+            } catch {
+                Logger.error("HTTP Server 启动失败: \(error)")
+                hasSubtitle = false
+                httpServerEnabled = false
+            }
         }
-        for subtitle in subtitles {
-            if let url = subtitle.url {
-                addSubtitleData(lang: subtitle.lan, name: subtitle.lan_doc, duration: info.dash.duration, url: url.absoluteString)
+
+        // 仅在 HTTP Server 启动成功时添加字幕
+        if hasSubtitle && httpServerEnabled {
+            for subtitle in subtitles {
+                if let url = subtitle.url {
+                    addSubtitleData(lang: subtitle.lan, name: subtitle.lan_doc, duration: info.dash.duration, url: url.absoluteString)
+                }
             }
         }
 
@@ -356,8 +389,22 @@ private extension BilibiliVideoResourceLoaderDelegate {
             Task {
                 report(loadingRequest, content: await getVideoPlayList(info: info))
             }
+            return
         }
         if urlStr.hasPrefix(URLs.customSubtitlePrefix) {
+            // tvOS 不支持字幕,直接返回错误
+            if isTvOS {
+                Logger.warn("tvOS 平台不支持字幕功能")
+                reportError(loadingRequest, withErrorCode: badRequestErrorCode)
+                return
+            }
+
+            guard httpServerEnabled, let server = httpServer else {
+                Logger.error("HTTP Server 未启用或未初始化,无法加载字幕")
+                reportError(loadingRequest, withErrorCode: badRequestErrorCode)
+                return
+            }
+
             let url = String(urlStr.dropFirst(URLs.customSubtitlePrefix.count))
             let req = url.removingPercentEncoding ?? url
             Task {
@@ -367,7 +414,7 @@ private extension BilibiliVideoResourceLoaderDelegate {
                         let vtt = BVideoUrlUtils.convertToVTT(subtitle: content)
                         subtitles[req] = vtt
                     }
-                    let port = try self.httpServer.port()
+                    let port = try server.port()
                     let url = "http://127.0.0.1:\(port)/subtitle?u=" + url
                     let redirectRequest = URLRequest(url: URL(string: url)!)
                     let redirectResponse = HTTPURLResponse(url: URL(string: url)!, statusCode: 302, httpVersion: nil, headerFields: nil)
@@ -377,6 +424,7 @@ private extension BilibiliVideoResourceLoaderDelegate {
                     loadingRequest.finishLoading()
                     return
                 } catch let err {
+                    Logger.error("字幕加载失败: \(err)")
                     loadingRequest.finishLoading(with: err)
                 }
             }
@@ -386,7 +434,11 @@ private extension BilibiliVideoResourceLoaderDelegate {
     }
 
     func bindHttpServer() {
-        httpServer["/subtitle"] = { [weak self] req in
+        guard let server = httpServer else {
+            Logger.warn("HTTP Server 未初始化,无法绑定路由")
+            return
+        }
+        server["/subtitle"] = { [weak self] req in
             if let url = req.queryParams.first(where: { $0.0 == "u" })?.1 {
                 let req = url.removingPercentEncoding ?? url
                 if let content = self?.subtitles[req] {

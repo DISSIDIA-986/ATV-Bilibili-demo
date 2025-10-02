@@ -42,6 +42,11 @@ enum NetworkQualityLevel: Int, CaseIterable {
     }
 
     static func from(score: Double) -> NetworkQualityLevel {
+        // 确保score是有效的数值
+        guard score.isFinite else {
+            return .unknown
+        }
+
         switch score {
         case 3.5...4.0:
             return .excellent
@@ -70,44 +75,64 @@ struct NetworkQualityMetrics {
     var qualityScore: Double {
         var score: Double = 0
 
-        if latency < 50 {
-            score += 1.0
-        } else if latency < 100 {
-            score += 0.8
-        } else if latency < 200 {
-            score += 0.5
+        // 安全检查latency值
+        if latency.isFinite && latency >= 0 {
+            if latency < 50 {
+                score += 1.0
+            } else if latency < 100 {
+                score += 0.8
+            } else if latency < 200 {
+                score += 0.5
+            } else {
+                score += 0.2
+            }
         } else {
-            score += 0.2
+            score += 0.1 // 异常值给最低分
         }
 
-        if downloadSpeed > 50 {
-            score += 1.0
-        } else if downloadSpeed > 20 {
-            score += 0.8
-        } else if downloadSpeed > 5 {
-            score += 0.5
+        // 安全检查downloadSpeed值
+        if downloadSpeed.isFinite && downloadSpeed >= 0 {
+            if downloadSpeed > 50 {
+                score += 1.0
+            } else if downloadSpeed > 20 {
+                score += 0.8
+            } else if downloadSpeed > 5 {
+                score += 0.5
+            } else {
+                score += 0.2
+            }
         } else {
-            score += 0.2
+            score += 0.1 // 异常值给最低分
         }
 
-        if packetLoss < 0.01 {
-            score += 1.0
-        } else if packetLoss < 0.05 {
-            score += 0.8
-        } else if packetLoss < 0.1 {
-            score += 0.5
+        // 安全检查packetLoss值
+        if packetLoss.isFinite && packetLoss >= 0 && packetLoss <= 1.0 {
+            if packetLoss < 0.01 {
+                score += 1.0
+            } else if packetLoss < 0.05 {
+                score += 0.8
+            } else if packetLoss < 0.1 {
+                score += 0.5
+            } else {
+                score += 0.2
+            }
         } else {
-            score += 0.2
+            score += 0.1 // 异常值给最低分
         }
 
-        if jitter < 10 {
-            score += 1.0
-        } else if jitter < 30 {
-            score += 0.8
-        } else if jitter < 50 {
-            score += 0.5
+        // 安全检查jitter值
+        if jitter.isFinite && jitter >= 0 {
+            if jitter < 10 {
+                score += 1.0
+            } else if jitter < 30 {
+                score += 0.8
+            } else if jitter < 50 {
+                score += 0.5
+            } else {
+                score += 0.2
+            }
         } else {
-            score += 0.2
+            score += 0.1 // 异常值给最低分
         }
 
         return score
@@ -335,7 +360,19 @@ class NetworkQualityDetector: ObservableObject {
             let endTime = CFAbsoluteTimeGetCurrent()
 
             let duration = endTime - startTime
+
+            // 确保duration有效且不为0，避免除以0
+            guard duration > 0 && duration.isFinite else {
+                return (download: 0, upload: 0)
+            }
+
             let bytesPerSecond = Double(data.count) / duration
+
+            // 确保bytesPerSecond有效
+            guard bytesPerSecond.isFinite && bytesPerSecond >= 0 else {
+                return (download: 0, upload: 0)
+            }
+
             let mbps = (bytesPerSecond * 8) / (1024 * 1024)
 
             return (download: mbps, upload: mbps * 0.3)
@@ -371,15 +408,29 @@ class NetworkQualityDetector: ObservableObject {
 
         for _ in 0..<5 {
             if let latency = await measureLatency(to: testEndpoints[0]) {
-                latencies.append(latency)
+                // 确保latency是有效值
+                if latency.isFinite && latency >= 0 {
+                    latencies.append(latency)
+                }
             }
         }
 
         guard latencies.count > 1 else { return 0 }
 
         let average = latencies.reduce(0, +) / Double(latencies.count)
+
+        // 确保average是有效值
+        guard average.isFinite else { return 0 }
+
         let variance = latencies.map { pow($0 - average, 2) }.reduce(0, +) / Double(latencies.count)
-        return sqrt(variance) * 1000
+
+        // 确保variance是有效值且非负
+        guard variance.isFinite && variance >= 0 else { return 0 }
+
+        let jitter = sqrt(variance) * 1000
+
+        // 确保最终结果是有效值
+        return jitter.isFinite ? jitter : 0
     }
 
     func getAdaptiveTimeout(baseTimeout: TimeInterval) -> TimeInterval {
