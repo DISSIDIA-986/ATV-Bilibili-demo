@@ -306,7 +306,63 @@ return await withCheckedContinuation { continuation in
 }
 ```
 
-**文件位置**：`BilibiliLive/Request/NetworkQualityDetector.swift:270-327`
+### 14. Swift Range边界检查错误
+
+**问题描述**：
+```
+Swift/arm64-apple-tvos-simulator.swiftinterface:6072: Fatal error: Range requires lowerBound <= upperBound
+```
+
+**根本原因**：在`NetworkQualityDetector.swift`中，网络测量可能返回异常值（NaN、无穷大、负数），导致Range比较操作失败：
+1. `qualityScore`计算中可能产生NaN或无穷大
+2. `NetworkQualityLevel.from(score:)`使用Range进行pattern matching
+3. 当score为异常值时，Range操作触发越界错误
+
+**修复方案**：
+添加全面的数值有效性检查：
+```swift
+// 1. Range匹配前检查数值有效性
+static func from(score: Double) -> NetworkQualityLevel {
+    guard score.isFinite else {
+        return .unknown
+    }
+    switch score {
+    case 3.5...4.0: return .excellent
+    // ...
+    }
+}
+
+// 2. 测量函数中添加安全检查
+private func measureNetworkSpeed() async -> (download: Double, upload: Double) {
+    // ...
+    guard duration > 0 && duration.isFinite else {
+        return (download: 0, upload: 0)
+    }
+    let bytesPerSecond = Double(data.count) / duration
+    guard bytesPerSecond.isFinite && bytesPerSecond >= 0 else {
+        return (download: 0, upload: 0)
+    }
+    // ...
+}
+
+// 3. 质量分数计算安全检查
+var qualityScore: Double {
+    // 对每个指标进行isFinite检查
+    if latency.isFinite && latency >= 0 {
+        // 正常计算
+    } else {
+        score += 0.1 // 异常值给最低分
+    }
+}
+```
+
+**影响范围**：
+- `NetworkQualityLevel.from(score:)` - 添加数值验证
+- `NetworkQualityMetrics.qualityScore` - 全面的异常值处理
+- `measureNetworkSpeed()` - 除零检查和结果验证
+- `measureJitter()` - 方差计算和结果验证
+
+**文件位置**：`BilibiliLive/Request/NetworkQualityDetector.swift:44-434`
 
 ---
 

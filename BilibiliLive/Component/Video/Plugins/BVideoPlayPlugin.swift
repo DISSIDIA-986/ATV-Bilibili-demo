@@ -67,25 +67,46 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
 
     @MainActor
     private func playmedia(urlInfo: VideoPlayURLInfo, playerInfo: PlayerInfo?) async throws {
+        Logger.info("开始加载视频资源,aid: \(playData.aid), cid: \(playData.cid)")
+
         let playURL = URL(string: BilibiliVideoResourceLoaderDelegate.URLs.play)!
         let headers: [String: String] = [
             "User-Agent": Keys.userAgent,
             "Referer": Keys.referer(for: playData.aid),
         ]
-        let asset = AVURLAsset(url: playURL, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
-        playerDelegate = BilibiliVideoResourceLoaderDelegate()
-        playerDelegate?.setBilibili(info: urlInfo, subtitles: playerInfo?.subtitle?.subtitles ?? [], aid: playData.aid)
-        if Settings.contentMatchOnlyInHDR {
-            if playerDelegate?.isHDR != true {
-                playerVC?.appliesPreferredDisplayCriteriaAutomatically = false
+
+        do {
+            let asset = AVURLAsset(url: playURL, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+            playerDelegate = BilibiliVideoResourceLoaderDelegate()
+
+            #if os(tvOS)
+                Logger.info("tvOS 平台:字幕功能已禁用")
+            #endif
+
+            playerDelegate?.setBilibili(info: urlInfo, subtitles: playerInfo?.subtitle?.subtitles ?? [], aid: playData.aid)
+
+            if Settings.contentMatchOnlyInHDR {
+                if playerDelegate?.isHDR != true {
+                    playerVC?.appliesPreferredDisplayCriteriaAutomatically = false
+                }
             }
+
+            asset.resourceLoader.setDelegate(playerDelegate, queue: DispatchQueue(label: "loader"))
+
+            Logger.info("正在检查资源是否可播放...")
+            let playable = try await asset.load(.isPlayable)
+
+            if !playable {
+                Logger.error("资源不可播放")
+                throw "加载资源失败"
+            }
+
+            Logger.info("资源加载成功,准备播放")
+            await prepare(toPlay: asset)
+        } catch {
+            Logger.error("视频播放失败: \(error)")
+            throw error
         }
-        asset.resourceLoader.setDelegate(playerDelegate, queue: DispatchQueue(label: "loader"))
-        let playable = try await asset.load(.isPlayable)
-        if !playable {
-            throw "加载资源失败"
-        }
-        await prepare(toPlay: asset)
     }
 
     @MainActor

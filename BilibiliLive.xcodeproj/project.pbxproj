@@ -355,10 +355,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_STYLE = Manual;
-				"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvsimulator*]" = "";
 				"CODE_SIGNING_ALLOWED[sdk=appletvsimulator*]" = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = MA73Z27922;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/BilibiliLive/Vendor",
@@ -375,6 +375,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.niuyp.BilibiliLive.demo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvsimulator*]" = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 3;
@@ -388,10 +389,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_STYLE = Manual;
-				"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvsimulator*]" = "";
 				"CODE_SIGNING_ALLOWED[sdk=appletvsimulator*]" = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvsimulator*]" = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = MA73Z27922;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/BilibiliLive/Vendor",
@@ -408,6 +409,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.niuyp.BilibiliLive.demo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvsimulator*]" = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 3;
 				TVOS_DEPLOYMENT_TARGET = 16.0;
