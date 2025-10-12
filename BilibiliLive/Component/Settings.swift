@@ -101,6 +101,23 @@ enum Settings {
     @UserDefault("DLNA.enable", defaultValue: true)
     static var enableDLNA: Bool
 
+    // MARK: - CloudTV Settings
+
+    @UserDefault("CloudTV.enable", defaultValue: true)
+    static var enableCloudTV: Bool
+
+    @UserDefault("CloudTV.autoConnect", defaultValue: false)
+    static var cloudTVAutoConnect: Bool
+
+    @UserDefault("CloudTV.lastDeviceId", defaultValue: "")
+    static var cloudTVLastDeviceId: String
+
+    @UserDefault("CloudTV.discoveryTimeout", defaultValue: 5.0)
+    static var cloudTVDiscoveryTimeout: Double
+
+    @UserDefault("CloudTV.showStatusIndicator", defaultValue: true)
+    static var cloudTVShowStatusIndicator: Bool
+
     @UserDefault("Settings.continouslyPlay", defaultValue: true)
     static var continouslyPlay: Bool
 

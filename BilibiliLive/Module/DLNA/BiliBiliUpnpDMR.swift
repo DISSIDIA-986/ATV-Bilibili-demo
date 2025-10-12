@@ -25,6 +25,11 @@ class BiliBiliUpnpDMR: NSObject {
     private var ip: String?
     private var boardcastTimer: Timer?
 
+    // CloudTV Integration
+    private var cloudTVHandler: CloudTVProtocolHandler?
+    private var discoveredCloudTVDevices: [BilibiliTVDevice] = []
+    private var currentCloudTVDevice: BilibiliTVDevice?
+
     private lazy var serverInfo: String = {
         let file = Bundle.main.url(forResource: "DLNAInfo", withExtension: "xml")!
         return try! String(contentsOf: file).replacingOccurrences(of: "{{UUID}}", with: bUuid)
@@ -360,6 +365,165 @@ extension BiliBiliUpnpDMR {
         } else {
             player.present(from: topMost, direatlyEnterVideo: true)
         }
+    }
+}
+
+// MARK: - CloudTV Integration
+
+extension BiliBiliUpnpDMR {
+    /// 初始化CloudTV协议处理器
+    func initializeCloudTV() {
+        if cloudTVHandler == nil {
+            cloudTVHandler = CloudTVProtocolHandlerImpl()
+            setupCloudTVCallbacks()
+        }
+    }
+
+    /// 设置CloudTV回调
+    private func setupCloudTVCallbacks() {
+        cloudTVHandler?.onDeviceStatusChanged = { [weak self] device, status in
+            Logger.info("CloudTV device \(device.deviceName) status changed to \(status)")
+            self?.handleCloudTVDeviceStatusChange(device: device, status: status)
+        }
+
+        cloudTVHandler?.onPlaybackStateUpdated = { [weak self] device, state in
+            Logger.debug("CloudTV playback state updated: position=\(state.currentPosition), status=\(state.status)")
+            self?.handleCloudTVPlaybackStateUpdate(device: device, state: state)
+        }
+    }
+
+    /// 发现CloudTV设备
+    func discoverCloudTVDevices(timeout: TimeInterval = 5.0, completion: @escaping ([BilibiliTVDevice]) -> Void) {
+        initializeCloudTV()
+
+        cloudTVHandler?.discoverDevices(timeout: timeout) { [weak self] devices in
+            self?.discoveredCloudTVDevices = devices
+            Logger.info("Discovered \(devices.count) CloudTV devices")
+            completion(devices)
+        }
+    }
+
+    /// 连接到CloudTV设备
+    func connectToCloudTVDevice(_ device: BilibiliTVDevice, completion: @escaping (Result<Void, Error>) -> Void) {
+        initializeCloudTV()
+
+        cloudTVHandler?.connect(to: device) { [weak self] result in
+            switch result {
+            case .success:
+                self?.currentCloudTVDevice = device
+                Logger.info("Successfully connected to CloudTV device: \(device.deviceName)")
+                completion(.success(()))
+
+            case let .failure(error):
+                Logger.error("Failed to connect to CloudTV device: \(error)")
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// 断开CloudTV设备
+    func disconnectCloudTVDevice() {
+        guard let device = currentCloudTVDevice else { return }
+
+        cloudTVHandler?.disconnect(from: device)
+        currentCloudTVDevice = nil
+        Logger.info("Disconnected from CloudTV device")
+    }
+
+    /// 通过CloudTV播放视频
+    func playVideoOnCloudTV(url: String, title: String, metadata: VideoMetadata?, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let device = currentCloudTVDevice else {
+            completion(.failure(CloudTVError.deviceNotFound))
+            return
+        }
+
+        let command = PlayCommand.play(url: url, title: title, metadata: metadata)
+
+        cloudTVHandler?.sendCommand(command, to: device) { result in
+            switch result {
+            case .success:
+                Logger.info("Successfully sent play command to CloudTV device")
+                completion(.success(()))
+
+            case let .failure(error):
+                Logger.error("Failed to send play command: \(error)")
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// 控制CloudTV播放
+    func controlCloudTVPlayback(_ command: PlayCommand, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let device = currentCloudTVDevice else {
+            completion(.failure(CloudTVError.deviceNotFound))
+            return
+        }
+
+        cloudTVHandler?.sendCommand(command, to: device, completion: completion)
+    }
+
+    /// 获取CloudTV播放状态
+    func getCloudTVPlaybackState(completion: @escaping (Result<PlaybackState, Error>) -> Void) {
+        guard let device = currentCloudTVDevice else {
+            completion(.failure(CloudTVError.deviceNotFound))
+            return
+        }
+
+        cloudTVHandler?.getPlaybackState(from: device, completion: completion)
+    }
+
+    /// 处理CloudTV设备状态变化
+    private func handleCloudTVDeviceStatusChange(device: BilibiliTVDevice, status: DeviceStatus) {
+        // 根据状态更新UI或发送通知
+        NotificationCenter.default.post(
+            name: .init("CloudTVDeviceStatusChanged"),
+            object: nil,
+            userInfo: ["device": device, "status": status]
+        )
+
+        // 将状态映射到DLNA播放状态并发送
+        Task { @MainActor in
+            switch status {
+            case .playing:
+                sendStatus(status: .playing)
+            case .paused:
+                sendStatus(status: .paused)
+            case .disconnected, .error:
+                sendStatus(status: .stop)
+            default:
+                break
+            }
+        }
+    }
+
+    /// 处理CloudTV播放状态更新
+    private func handleCloudTVPlaybackStateUpdate(device: BilibiliTVDevice, state: PlaybackState) {
+        // 同步播放进度到DLNA sessions
+        Task { @MainActor in
+            sendProgress(duration: Int(state.duration), current: Int(state.currentPosition))
+        }
+
+        // 发送通知
+        NotificationCenter.default.post(
+            name: .init("CloudTVPlaybackStateUpdated"),
+            object: nil,
+            userInfo: ["device": device, "state": state]
+        )
+    }
+
+    /// 获取已发现的CloudTV设备列表
+    func getDiscoveredCloudTVDevices() -> [BilibiliTVDevice] {
+        discoveredCloudTVDevices
+    }
+
+    /// 获取当前连接的CloudTV设备
+    func getCurrentCloudTVDevice() -> BilibiliTVDevice? {
+        currentCloudTVDevice
+    }
+
+    /// 检查是否已连接CloudTV设备
+    func isCloudTVConnected() -> Bool {
+        currentCloudTVDevice?.status == .connected || currentCloudTVDevice?.status == .playing
     }
 }
 

@@ -440,3 +440,91 @@ extension VideoPlayerViewModel {
         return nil
     }
 }
+
+// MARK: - CloudTV Casting Integration
+
+extension VideoPlayerViewModel {
+    /// 显示CloudTV设备选择界面
+    func showCloudTVDeviceSelection(from viewController: UIViewController, completion: @escaping (Bool) -> Void) {
+        let selectionVC = CloudTVSelectionViewController()
+
+        selectionVC.onDeviceSelected = { [weak self] device in
+            self?.connectAndCastToCloudTV(device: device, completion: completion)
+        }
+
+        selectionVC.onCancel = {
+            completion(false)
+        }
+
+        selectionVC.modalPresentationStyle = .overFullScreen
+        selectionVC.modalTransitionStyle = .crossDissolve
+
+        viewController.present(selectionVC, animated: true)
+    }
+
+    /// 连接并投屏到CloudTV设备
+    private func connectAndCastToCloudTV(device: BilibiliTVDevice, completion: @escaping (Bool) -> Void) {
+        BiliBiliUpnpDMR.shared.connectToCloudTVDevice(device) { [weak self] result in
+            switch result {
+            case .success:
+                Logger.info("Successfully connected to CloudTV device")
+                self?.startCastingToCloudTV(completion: completion)
+
+            case let .failure(error):
+                Logger.error("Failed to connect to CloudTV: \(error)")
+                completion(false)
+            }
+        }
+    }
+
+    /// 开始投屏到CloudTV
+    private func startCastingToCloudTV(completion: @escaping (Bool) -> Void) {
+        guard let videoDetail = videoDetail else {
+            completion(false)
+            return
+        }
+
+        // Build video URL
+        // Note: In production, you would get the actual play URL from VideoPlayURLInfo
+        let videoURL = "https://bilibili.com/video/av\(playInfo.aid)"
+
+        // Create metadata
+        let metadata = VideoMetadata(
+            aid: playInfo.aid,
+            cid: playInfo.cid ?? 0,
+            title: videoDetail.View.title,
+            upName: videoDetail.ownerName,
+            coverUrl: videoDetail.pic?.absoluteString,
+            duration: videoDetail.View.duration,
+            currentPosition: 0,
+            danmakuEnabled: Defaults.shared.showDanmu
+        )
+
+        // Send play command to CloudTV
+        BiliBiliUpnpDMR.shared.playVideoOnCloudTV(
+            url: videoURL,
+            title: videoDetail.View.title,
+            metadata: metadata
+        ) { result in
+            switch result {
+            case .success:
+                Logger.info("Successfully started casting to CloudTV")
+                completion(true)
+
+            case let .failure(error):
+                Logger.error("Failed to cast to CloudTV: \(error)")
+                completion(false)
+            }
+        }
+    }
+
+    /// 检查是否已连接CloudTV设备
+    func isCloudTVConnected() -> Bool {
+        BiliBiliUpnpDMR.shared.isCloudTVConnected()
+    }
+
+    /// 断开CloudTV连接
+    func disconnectCloudTV() {
+        BiliBiliUpnpDMR.shared.disconnectCloudTVDevice()
+    }
+}
