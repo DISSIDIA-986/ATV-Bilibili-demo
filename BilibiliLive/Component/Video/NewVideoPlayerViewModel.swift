@@ -35,6 +35,7 @@ class VideoPlayerViewModel {
     private var videoDetail: VideoDetail?
     private var cancellable = Set<AnyCancellable>()
     private var playPlugin: CommonPlayerPlugin?
+    private var autoPlayPlugin: AutoPlayPromptPlugin?
 
     init(playInfo: PlayInfo) {
         self.playInfo = playInfo
@@ -201,7 +202,7 @@ class VideoPlayerViewModel {
 
         let playlist = VideoPlayListPlugin(nextProvider: nextProvider)
         playlist.onPlayEnd = { [weak self] in
-            self?.onExit?()
+            self?.handleVideoEnd()
         }
         playlist.onPlayNextWithInfo = {
             [weak self] info in
@@ -209,7 +210,19 @@ class VideoPlayerViewModel {
             playNext(newPlayInfo: info)
         }
 
+        // 创建自动播放插件
+        let autoPlayPlugin = AutoPlayPromptPlugin()
+        autoPlayPlugin.onAutoPlay = { [weak self] playInfo in
+            guard let self else { return }
+            playNext(newPlayInfo: playInfo)
+        }
+        autoPlayPlugin.onCancel = { [weak self] in
+            // 用户取消自动播放
+            self?.onExit?()
+        }
+
         playPlugin = player
+        self.autoPlayPlugin = autoPlayPlugin
 
         // 添加画质自适应插件
         let qualityAdapter = QualityAdapterPlugin()
@@ -220,7 +233,7 @@ class VideoPlayerViewModel {
         // 添加播放统计插件
         let playbackStats = PlaybackStatisticsPlugin()
 
-        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, qualityAdapter, networkMonitor, playbackStats]
+        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, autoPlayPlugin, qualityAdapter, networkMonitor, playbackStats]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)
@@ -330,10 +343,67 @@ extension VideoPlayerViewModel {
         }
 
         if areas.isEmpty {
-            // 标题没有地区限制信息，返回尝试检测的区域
+            // 标题没有地区限制信息,返回尝试检测的区域
             return ["tw", "hk"]
         } else {
             return areas
         }
+    }
+}
+
+// MARK: - Auto Play Next Video
+
+extension VideoPlayerViewModel {
+    /// 处理视频播放结束
+    private func handleVideoEnd() {
+        Task {
+            if let currentVideoDetail = videoDetail,
+               Settings.autoPlayEnabled,
+               let nextVideo = await fetchNextAutoPlayVideo(for: currentVideoDetail)
+            {
+                // 获取视频详情以显示标题
+                if let detail = try? await WebRequest.requestDetailVideo(aid: nextVideo.aid) {
+                    // 在主线程显示自动播放提示
+                    await MainActor.run {
+                        autoPlayPlugin?.showAutoPlayPrompt(for: nextVideo, title: detail.View.title)
+                    }
+                } else {
+                    // 如果获取详情失败，使用默认提示
+                    await MainActor.run {
+                        autoPlayPlugin?.showAutoPlayPrompt(for: nextVideo)
+                    }
+                }
+            } else {
+                // 如果没有下一个视频或自动播放已禁用,执行现有逻辑
+                DispatchQueue.main.async { [weak self] in
+                    self?.nextProvider?.reset()
+                    if let nextInfo = self?.nextProvider?.getNext() {
+                        self?.playNext(newPlayInfo: nextInfo)
+                    } else {
+                        self?.onExit?()
+                    }
+                }
+            }
+        }
+    }
+
+    /// 获取下一个自动播放视频
+    private func fetchNextAutoPlayVideo(for currentVideo: VideoDetail) async -> PlayInfo? {
+        do {
+            // 通过B站API获取相似视频
+            let relatedVideos = try await WebRequest.requestRelatedVideo(aid: currentVideo.View.aid)
+
+            // 过滤出有效的视频信息
+            for video in relatedVideos {
+                if video.aid != currentVideo.View.aid { // 确保不是当前视频
+                    return PlayInfo(aid: video.aid, cid: video.cid) // 使用返回的cid
+                }
+            }
+        } catch {
+            Logger.warn("获取相似视频失败: \(error)")
+        }
+
+        // 如果API获取失败,尝试使用现有nextProvider
+        return nextProvider?.getNext()
     }
 }
