@@ -220,6 +220,10 @@ class VideoPlayerViewModel {
             // 用户取消自动播放
             self?.onExit?()
         }
+        autoPlayPlugin.onFetchNextVideo = { [weak self] () async -> (PlayInfo, String?)? in
+            guard let self, let currentVideoDetail = videoDetail else { return nil }
+            return await self.fetchNextAutoPlayVideoWithTitle(for: currentVideoDetail)
+        }
 
         playPlugin = player
         self.autoPlayPlugin = autoPlayPlugin
@@ -405,5 +409,34 @@ extension VideoPlayerViewModel {
 
         // 如果API获取失败,尝试使用现有nextProvider
         return nextProvider?.getNext()
+    }
+
+    /// 获取下一个自动播放视频及其标题(供AutoPlayPromptPlugin使用)
+    private func fetchNextAutoPlayVideoWithTitle(for currentVideo: VideoDetail) async -> (PlayInfo, String?)? {
+        do {
+            // 通过B站API获取相似视频
+            let relatedVideos = try await WebRequest.requestRelatedVideo(aid: currentVideo.View.aid)
+
+            // 过滤出有效的视频信息
+            for video in relatedVideos {
+                if video.aid != currentVideo.View.aid {
+                    // 返回PlayInfo和标题
+                    return (PlayInfo(aid: video.aid, cid: video.cid), video.title)
+                }
+            }
+        } catch {
+            Logger.warn("获取相似视频失败: \(error)")
+        }
+
+        // 如果API获取失败,尝试使用现有nextProvider
+        if let nextInfo = nextProvider?.getNext() {
+            // 尝试获取详情以获得标题
+            if let detail = try? await WebRequest.requestDetailVideo(aid: nextInfo.aid) {
+                return (nextInfo, detail.View.title)
+            }
+            return (nextInfo, nil)
+        }
+
+        return nil
     }
 }

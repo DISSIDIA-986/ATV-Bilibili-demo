@@ -25,6 +25,7 @@ class AutoPlayPromptPlugin: NSObject, CommonPlayerPlugin {
     private var nextVideoInfo: PlayInfo?
     var onCancel: (() -> Void)?
     var onAutoPlay: ((PlayInfo) -> Void)?
+    var onFetchNextVideo: (() async -> (PlayInfo, String?)?)? // 新增: 获取下一个视频的回调
 
     // UI元素
     private var containerView: UIView?
@@ -85,7 +86,18 @@ class AutoPlayPromptPlugin: NSObject, CommonPlayerPlugin {
     func playerDidFail(player: AVPlayer) {}
 
     func playerDidEnd(player: AVPlayer) {
-        // 播放结束时不在此处触发，由ViewModel统一管理
+        // 直接在插件中处理播放结束,获取并显示下一个推荐视频
+        guard Settings.autoPlayEnabled else { return }
+
+        Task { @MainActor in
+            // 调用回调获取下一个视频
+            if let fetchNext = onFetchNextVideo {
+                let result = await fetchNext()
+                if let (nextVideo, title) = result {
+                    showAutoPlayPrompt(for: nextVideo, title: title)
+                }
+            }
+        }
     }
 
     func playerDidCleanUp(player: AVPlayer) {
