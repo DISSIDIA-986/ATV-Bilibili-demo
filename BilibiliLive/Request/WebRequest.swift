@@ -353,6 +353,10 @@ extension WebRequest {
         }
     }
 
+    static func requestRelatedVideo(aid: Int) async throws -> [VideoDetail.Info] {
+        try await request(method: .get, url: EndPoint.related, parameters: ["aid": aid])
+    }
+
     static func requestDetailVideo(aid: Int) async throws -> VideoDetail {
         try await request(url: "https://api.bilibili.com/x/web-interface/view/detail", parameters: ["aid": aid])
     }
