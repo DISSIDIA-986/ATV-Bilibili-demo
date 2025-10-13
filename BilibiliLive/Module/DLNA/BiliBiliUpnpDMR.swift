@@ -25,10 +25,13 @@ class BiliBiliUpnpDMR: NSObject {
     private var ip: String?
     private var boardcastTimer: Timer?
 
-    // CloudTV Integration
+    // CloudTV Integration (deprecated - wrong sender implementation)
     private var cloudTVHandler: CloudTVProtocolHandler?
     private var discoveredCloudTVDevices: [BilibiliTVDevice] = []
     private var currentCloudTVDevice: BilibiliTVDevice?
+
+    // Cast Receiver Integration (correct implementation)
+    private var castReceiver: BilibiliTVCastReceiver?
 
     private lazy var serverInfo: String = {
         let file = Bundle.main.url(forResource: "DLNAInfo", withExtension: "xml")!
@@ -63,6 +66,7 @@ class BiliBiliUpnpDMR: NSObject {
     override private init() { super.init() }
     func start() {
         startIfNeed()
+        initializeCastReceiver()
         NotificationCenter.default.addObserver(self, selector: #selector(didEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
 
@@ -139,6 +143,7 @@ class BiliBiliUpnpDMR: NSObject {
         boardcastTimer = nil
         udp?.close()
         httpServer.stop()
+        castReceiver?.stopCastReceiverService()
         started = false
         Logger.info("dmr stopped")
     }
@@ -368,7 +373,122 @@ extension BiliBiliUpnpDMR {
     }
 }
 
-// MARK: - CloudTV Integration
+// MARK: - Cast Receiver Integration (Correct Implementation)
+
+extension BiliBiliUpnpDMR {
+    /// Initialize Cast Receiver to allow Apple TV to receive casts from mobile devices
+    func initializeCastReceiver() {
+        guard castReceiver == nil else { return }
+
+        castReceiver = BilibiliTVCastReceiver.shared
+
+        // Setup callback for receiving Bilibili video casts
+        castReceiver?.onBilibiliVideoReceived = { [weak self] aid, cid, metadata in
+            Logger.info("Received Bilibili video cast: aid=\(aid), cid=\(cid)")
+            DispatchQueue.main.async {
+                self?.playVideoFromCast(aid: aid, cid: cid, metadata: metadata)
+            }
+        }
+
+        // Setup callback for receiving generic video URL casts
+        castReceiver?.onVideoReceived = { [weak self] url, title, metadata in
+            Logger.info("Received video URL cast: \(url)")
+            DispatchQueue.main.async {
+                self?.playVideoURLFromCast(url: url, title: title, metadata: metadata)
+            }
+        }
+
+        // Setup callback for playback control commands
+        castReceiver?.onCommandReceived = { [weak self] command in
+            Logger.debug("Received cast command: \(command)")
+            DispatchQueue.main.async {
+                self?.handleCastCommand(command)
+            }
+        }
+
+        // Setup callback for casting state changes
+        castReceiver?.onCastingStateChanged = { [weak self] isReceiving, source in
+            Logger.info("Casting state changed: isReceiving=\(isReceiving), source=\(source)")
+            DispatchQueue.main.async {
+                self?.handleCastingStateChange(isReceiving: isReceiving, source: source)
+            }
+        }
+
+        // Start the cast receiver service
+        castReceiver?.startCastReceiverService()
+    }
+
+    /// Play Bilibili video from cast
+    private func playVideoFromCast(aid: Int, cid: Int, metadata: [String: Any]?) {
+        let json: JSON = [
+            "aid": aid,
+            "cid": cid,
+            "epid": metadata?["epid"] as? Int ?? 0,
+        ]
+        playVideo(json: json)
+    }
+
+    /// Play generic video URL from cast
+    private func playVideoURLFromCast(url: String, title: String, metadata: [String: Any]?) {
+        // For generic URLs, we would need a different player
+        // For now, log it
+        Logger.info("Playing video URL from cast: \(url), title: \(title)")
+        // TODO: Implement generic video player for non-Bilibili URLs
+    }
+
+    /// Handle cast playback commands
+    private func handleCastCommand(_ command: CastCommand) {
+        switch command {
+        case .play:
+            currentPlugin?.resume()
+            Task { @MainActor in sendStatus(status: .playing) }
+
+        case .pause:
+            currentPlugin?.pause()
+            Task { @MainActor in sendStatus(status: .paused) }
+
+        case .stop:
+            let topMost = UIViewController.topMostViewController()
+            (topMost as? CommonPlayerViewController)?.dismiss(animated: true)
+            Task { @MainActor in sendStatus(status: .stop) }
+
+        case let .seek(time):
+            currentPlugin?.seek(to: time)
+
+        case let .volume(level):
+            // TODO: Implement volume control
+            Logger.debug("Volume command received: \(level)")
+
+        case let .setVideoURL(url, metadata):
+            playVideoURLFromCast(url: url, title: metadata?["title"] as? String ?? "Unknown", metadata: metadata)
+
+        case let .playBilibiliVideo(aid, cid, metadata):
+            playVideoFromCast(aid: aid, cid: cid, metadata: metadata)
+        }
+    }
+
+    /// Handle casting state changes
+    private func handleCastingStateChange(isReceiving: Bool, source: CastSource) {
+        if isReceiving {
+            Logger.info("Now receiving cast from: \(source.rawValue)")
+            // Optionally show UI indicator
+            NotificationCenter.default.post(
+                name: .init("CastingStateChanged"),
+                object: nil,
+                userInfo: ["isReceiving": isReceiving, "source": source.rawValue]
+            )
+        } else {
+            Logger.info("Stopped receiving cast")
+            NotificationCenter.default.post(
+                name: .init("CastingStateChanged"),
+                object: nil,
+                userInfo: ["isReceiving": false]
+            )
+        }
+    }
+}
+
+// MARK: - CloudTV Integration (Deprecated - Wrong Sender Implementation)
 
 extension BiliBiliUpnpDMR {
     /// 初始化CloudTV协议处理器
