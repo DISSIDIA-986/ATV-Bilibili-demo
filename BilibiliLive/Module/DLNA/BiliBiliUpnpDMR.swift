@@ -240,12 +240,13 @@ class BiliBiliUpnpDMR: NSObject {
             Logger.debug("no ip")
             return ""
         }
+        // 修改Server标识以匹配Bilibili App期望 (Modify Server identifier to match Bilibili App expectations)
         let text = """
         NOTIFY * HTTP/1.1
         Host: 239.255.255.250:1900
         Location: http://\(ip):9958/description.xml
         Cache-Control: max-age=30
-        Server: Linux/3.0.0, UPnP/1.0, Platinum/1.0.5.13
+        Server: BilibiliDLNA/2.0 UPnP/1.0 BilibiliTV/1.0
         NTS: ssdp:alive
         USN: uuid:\(bUuid)::urn:schemas-upnp-org:device:MediaRenderer:1
         NT: urn:schemas-upnp-org:device:MediaRenderer:1
