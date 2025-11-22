@@ -12,7 +12,7 @@
 ## 快速部署（推荐）
 
 1. Xcode 登录你的 Apple ID（Personal Team 即可）。路径：Xcode → Settings → Accounts，确认无警告。
-2. 打开 `BilibiliLive.xcodeproj`，Target `BilibiliLive` → Signing & Capabilities：勾选 Automatically manage signing，Team 选你的账号，Bundle Identifier 设为你自己的（例如 `com.<你的前缀>.BilibiliLive`）。
+2. 打开 `BilibiliLive.xcodeproj`，Target `BilibiliLive` → Signing & Capabilities：勾选 Automatically manage signing，Team 选你的账号，Bundle Identifier 设为你自己的（例如 `com.<你的前缀>.BilibiliLive`）。工程默认是占位的 Team/Bundle，需要你在本机覆盖。
 3. 运行部署脚本（已在仓库根目录）：
    ```bash
    TEAM_ID=<你的TeamID> \
