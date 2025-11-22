@@ -8,6 +8,32 @@
 import Combine
 import UIKit
 
+enum VideoPlaybackError: LocalizedError {
+    case regionRestricted
+    case vipRequired
+    case exclusiveContent
+    case areaNotSupported(String)
+    case playbackFailed(String)
+    case networkError(Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .regionRestricted:
+            return "该视频为区域限制，无法播放"
+        case .vipRequired:
+            return "该视频为大会员专属，无法播放"
+        case .exclusiveContent:
+            return "该视频为充电专属视频，无法播放"
+        case .areaNotSupported(let area):
+            return "暂不支持该地区播放：\(area)"
+        case .playbackFailed(let message):
+            return "播放失败：\(message)"
+        case .networkError(let error):
+            return "网络错误：\(error.localizedDescription)"
+        }
+    }
+}
+
 struct PlayerDetailData {
     let aid: Int
     let cid: Int
@@ -112,11 +138,19 @@ class VideoPlayerViewModel {
 
         } catch let err {
             if case let .statusFail(code, message) = err as? RequestError {
-                throw "\(code) \(message)，可能需要大会员"
+                if code == -10403 {
+                    throw VideoPlaybackError.regionRestricted
+                } else if code == -404 {
+                    throw VideoPlaybackError.vipRequired
+                } else if await infoReq?.is_upower_exclusive == true {
+                    throw VideoPlaybackError.exclusiveContent
+                } else {
+                    throw VideoPlaybackError.playbackFailed("\(code) \(message)")
+                }
             } else if await infoReq?.is_upower_exclusive == true {
-                throw "该视频为充电专属视频 \(err)"
+                throw VideoPlaybackError.exclusiveContent
             } else {
-                throw err
+                throw VideoPlaybackError.networkError(err)
             }
         }
     }
@@ -236,6 +270,10 @@ extension VideoPlayerViewModel {
         let checkAreaList = parseAreaByTitle(title: checkTitle)
         guard !checkAreaList.isEmpty else { return nil }
 
+        if checkAreaList.contains("unsupported") {
+            throw VideoPlaybackError.areaNotSupported("东南亚/其他地区")
+        }
+
         let playData = try await requestAreaLimitPcgPlayUrl(epid: epid, cid: playInfo.cid!, areaList: checkAreaList)
         return playData
     }
@@ -257,8 +295,8 @@ extension VideoPlayerViewModel {
 
     private func parseAreaByTitle(title: String) -> [String] {
         if title.isMatch(pattern: "[仅|僅].*[东南亚|其他]") {
-            // TODO: 未支持
-            return []
+            // 不支持的地区，抛出结构化错误
+            return ["unsupported"]
         }
 
         var areas: [String] = []

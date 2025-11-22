@@ -8,7 +8,8 @@
 
 ## Build, Test, and Development Commands
 - Open `BilibiliLive.xcodeproj` and run the `BilibiliLive` target on Apple TV hardware or simulator for interactive development.
-- CI-style check: `xcodebuild -scheme BilibiliLive -destination 'platform=tvOS Simulator,name=Apple TV' clean build` to ensure the target still builds headlessly.
+- CI-style check: `bash Scripts/ci-build.sh` to run a headless build validation.
+- Alternative CI command: `xcodebuild -scheme BilibiliLive -destination 'platform=tvOS Simulator,name=Apple TV' clean build` to ensure the target still builds headlessly.
 - Simulator build via Fastlane: `bundle exec fastlane tvos build_simulator` (skips archiving/IPA).
 - Unsigned release IPA: `bundle exec fastlane tvos build_unsign_ipa` (archives, zips `Payload/`, skips codesign; outputs `BilbiliAtvDemo.ipa` in repo root).
 - Format Swift: `cd BuildTools && swift run -c release swiftformat ../BilibiliLive`.

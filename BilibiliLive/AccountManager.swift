@@ -198,16 +198,40 @@ final class AccountManager {
     }
 
     private func loadFromStorage() {
-        if let data = storage.data(forKey: accountsKey) {
-            do {
-                storedAccounts = try JSONDecoder().decode([Account].self, from: data)
-            } catch {
-                storedAccounts = []
+        let keychain = KeychainManager.shared
+
+        do {
+            if let data = storage.data(forKey: accountsKey) {
+                do {
+                    storedAccounts = try JSONDecoder().decode([Account].self, from: data)
+                    try keychain.store(storedAccounts, forKey: accountsKey)
+                    storage.removeObject(forKey: accountsKey)
+                } catch {
+                    storedAccounts = []
+                }
+            } else {
+                storedAccounts = (try? keychain.retrieve([Account].self, forKey: accountsKey)) ?? []
             }
+        } catch {
+            Logger.warn("Failed to load accounts from keychain: \(error)")
+            storedAccounts = []
         }
+
         if storage.object(forKey: activeKey) != nil {
             let mid = storage.integer(forKey: activeKey)
             activeMID = storedAccounts.contains(where: { $0.profile.mid == mid }) ? mid : nil
+            storage.removeObject(forKey: activeKey)
+            do {
+                try keychain.store(activeMID as Any, forKey: activeKey)
+            } catch {
+                Logger.warn("Failed to migrate active MID to keychain: \(error)")
+            }
+        } else {
+            do {
+                activeMID = try keychain.retrieve(Int?.self, forKey: activeKey)
+            } catch {
+                activeMID = nil
+            }
         }
     }
 
@@ -217,19 +241,28 @@ final class AccountManager {
     }
 
     private func persistAccounts() {
-        let encoder = JSONEncoder()
-        if let data = try? encoder.encode(storedAccounts) {
-            storage.set(data, forKey: accountsKey)
-        } else {
-            storage.removeObject(forKey: accountsKey)
+        let keychain = KeychainManager.shared
+        do {
+            if storedAccounts.isEmpty {
+                try keychain.remove(forKey: accountsKey)
+            } else {
+                try keychain.store(storedAccounts, forKey: accountsKey)
+            }
+        } catch {
+            Logger.warn("Failed to persist accounts to keychain: \(error)")
         }
     }
 
     private func persistActiveMID() {
-        if let activeMID {
-            storage.set(activeMID, forKey: activeKey)
-        } else {
-            storage.removeObject(forKey: activeKey)
+        let keychain = KeychainManager.shared
+        do {
+            if let activeMID {
+                try keychain.store(activeMID, forKey: activeKey)
+            } else {
+                try keychain.remove(forKey: activeKey)
+            }
+        } catch {
+            Logger.warn("Failed to persist active MID to keychain: \(error)")
         }
     }
 
