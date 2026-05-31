@@ -68,6 +68,8 @@ class QualitySelectionPlugin: NSObject, CommonPlayerPlugin {
                     // 保存用户选择的清晰度到设置
                     if let quality = MediaQualityEnum.from(qn: option.qn) {
                         Settings.mediaQuality = quality
+                        // explicit user choice overrides any active auto stall cap
+                        Settings.runtimeQualityCap = nil
                         Logger.info("[QualityPlugin] Saved preferred quality: \(quality)")
                     }
                     self.onQualityChange?(option.qn)
