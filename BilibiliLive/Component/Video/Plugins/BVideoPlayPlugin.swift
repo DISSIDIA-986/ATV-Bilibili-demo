@@ -38,6 +38,9 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
         return Int(t)
     }
 
+    /// Host of the CDN node currently serving video, for stall blacklisting.
+    var currentVideoHost: String? { playerDelegate?.primaryVideoHost }
+
     func playerDidDismiss(playerVC: AVPlayerViewController) {
         guard let currentTime = playerVC.player?.currentTime().seconds, currentTime > 0 else { return }
         WebRequest.reportWatchHistory(aid: playData.aid, cid: playData.cid, currentTime: Int(currentTime), epid: playData.epid, seasonId: playData.seasonId, isBangumi: playData.isBangumi)
