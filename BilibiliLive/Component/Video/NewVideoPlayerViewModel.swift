@@ -315,7 +315,9 @@ class VideoPlayerViewModel {
         }
         qualityPlugin = quality
 
-        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, quality]
+        let stutterProbe = StutterProbePlugin()
+
+        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, stutterProbe, playlist, quality]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)
