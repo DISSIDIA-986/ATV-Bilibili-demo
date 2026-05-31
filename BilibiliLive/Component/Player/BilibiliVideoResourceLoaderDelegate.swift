@@ -47,6 +47,9 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
     private var aid = 0
     private(set) var httpPort = 0
     private(set) var isHDR = false
+    /// Host of the primary (top-sorted) video CDN URL in use — captured so a
+    /// sustained stall can blacklist it and the next reload escapes that node.
+    private(set) var primaryVideoHost: String?
     deinit {
         httpServer.stop()
     }
@@ -264,6 +267,9 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
             }
         }
 
+        primaryVideoHost = videos.first?.playableURLs.first.flatMap { BVideoUrlUtils.host(of: $0) }
+        Logger.info("[CDN] primary video host=\(primaryVideoHost ?? "?") blacklist=\(BVideoUrlUtils.blacklistedHosts)")
+
         for video in videos {
             for url in video.playableURLs {
                 addVideoPlayBackInfo(info: video, url: url, duration: info.dash.duration)
@@ -419,6 +425,21 @@ private extension BilibiliVideoResourceLoaderDelegate {
 }
 
 enum BVideoUrlUtils {
+    /// Hosts that produced a sustained stall this session. Pushed to the bottom
+    /// of URL preference so a recovery reload lands on a different CDN node
+    /// (e.g. escape a flaky G-Core overseas edge for the fast ISP-local cache).
+    /// Reset per fresh video in NewVideoPlayerViewModel.fetchVideoData.
+    static var blacklistedHosts = Set<String>()
+
+    static func host(of url: String) -> String? {
+        URLComponents(string: url)?.host
+    }
+
+    private static func isBlacklisted(_ url: String) -> Bool {
+        guard let h = host(of: url) else { return false }
+        return blacklistedHosts.contains(h)
+    }
+
     static func sortUrls(base: String, backup: [String]?) -> [String] {
         var urls = [base]
         if let backup {
@@ -426,6 +447,9 @@ enum BVideoUrlUtils {
         }
         return
             urls.sorted { lhs, rhs in
+                // hard-demote hosts that already stalled this session
+                let lhsBL = isBlacklisted(lhs), rhsBL = isBlacklisted(rhs)
+                if lhsBL != rhsBL { return !lhsBL }
                 let lhsIsPCDN = lhs.contains("szbdyd.com") || lhs.contains("mcdn.bilivideo.cn")
                 let rhsIsPCDN = rhs.contains("szbdyd.com") || rhs.contains("mcdn.bilivideo.cn")
                 switch (lhsIsPCDN, rhsIsPCDN) {

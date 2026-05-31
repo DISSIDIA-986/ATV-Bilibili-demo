@@ -73,9 +73,11 @@ class VideoPlayerViewModel {
 
     private func fetchVideoData() async throws -> PlayerDetailData {
         assert(playInfo.isCidVaild)
-        // fresh video / next episode: drop any session quality cap from a prior
-        // video's auto stall-recovery so this video honors the user's preference.
+        // fresh video / next episode: drop any session quality cap and CDN
+        // blacklist from a prior video's auto stall-recovery so this video starts
+        // clean and honors the user's preference.
         Settings.runtimeQualityCap = nil
+        BVideoUrlUtils.blacklistedHosts.removeAll()
         let aid = playInfo.aid
         guard let cid = playInfo.cid else {
             throw "Video cid is missing"
@@ -203,8 +205,17 @@ class VideoPlayerViewModel {
         }
     }
 
+    private var isReloading = false
+
     /// 重新加载当前视频（用于清晰度切换）
     private func reloadCurrentVideo() {
+        // single-flight: a stall during an in-progress reload must not kick off
+        // an overlapping reload (the live log showed reload churn otherwise)
+        guard !isReloading else {
+            Logger.info("[VideoPlayer] reload already in progress, ignoring")
+            return
+        }
+        isReloading = true
         // capture current position BEFORE tearing down the play plugin so the
         // reload resumes where we are instead of restarting from 0
         let resumePos = playPlugin?.currentPlaybackTime
@@ -265,6 +276,7 @@ class VideoPlayerViewModel {
             } catch let err {
                 Logger.warn("[VideoPlayer] Failed to reload video: \(err.localizedDescription)")
             }
+            isReloading = false
         }
     }
 
@@ -335,9 +347,16 @@ class VideoPlayerViewModel {
                 Logger.info("[StallRecovery] auto-recovery disabled by setting")
                 return
             }
+            // Blacklist the stalled CDN host so the reload's sortUrls demotes it
+            // and we escape to a different node (the real fix: a fresh playurl
+            // alone returns the SAME flaky host, so the reload never escaped).
+            if let badHost = playPlugin?.currentVideoHost {
+                BVideoUrlUtils.blacklistedHosts.insert(badHost)
+                Logger.info("[StallRecovery] blacklisted stalled CDN host: \(badHost)")
+            }
             let from = Settings.effectiveQuality
             Settings.runtimeQualityCap = .quality_1080p
-            Logger.info("[StallRecovery] recovering: \(from.qn) -> cap 1080p, reload for fresh CDN (position preserved)")
+            Logger.info("[StallRecovery] recovering: \(from.qn) -> cap 1080p, reload to escape bad node (position preserved)")
             self.reloadCurrentVideo()
         }
 
