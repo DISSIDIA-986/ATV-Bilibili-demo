@@ -323,20 +323,21 @@ class VideoPlayerViewModel {
 
         let stutterProbe = StutterProbePlugin()
 
-        // weak-network auto recovery: repeated stalls -> cap to 1080p + reload
+        // weak-network auto recovery: a sustained stall -> cap to 1080p and reload.
+        // The reload re-fetches playurl (fresh CDN) and, with the cap active,
+        // BVideoPlayPlugin also pins preferredPeakBitRate low. We reload even when
+        // already at 1080p because the dominant failure was a CDN node going to
+        // 0 Mbps — a fresh playurl lands on a different node.
         let stallRecovery = StallRecoveryPlugin()
-        stallRecovery.onStallThresholdReached = { [weak self] in
+        stallRecovery.onSustainedStall = { [weak self] in
             guard let self else { return }
             guard Settings.autoDowngradeOnStall else {
-                Logger.info("[StallRecovery] auto-downgrade disabled by setting")
+                Logger.info("[StallRecovery] auto-recovery disabled by setting")
                 return
             }
-            guard Settings.effectiveQuality.qn > MediaQualityEnum.quality_1080p.qn else {
-                Logger.info("[StallRecovery] already at/below 1080p, no downgrade")
-                return
-            }
-            Logger.info("[StallRecovery] repeated stalls -> cap to 1080p and reload (preserving position)")
+            let from = Settings.effectiveQuality
             Settings.runtimeQualityCap = .quality_1080p
+            Logger.info("[StallRecovery] recovering: \(from.qn) -> cap 1080p, reload for fresh CDN (position preserved)")
             self.reloadCurrentVideo()
         }
 

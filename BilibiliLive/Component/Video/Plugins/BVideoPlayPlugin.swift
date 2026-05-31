@@ -74,6 +74,12 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
         // Deeper forward buffer so transient CDN throughput dips don't drain the
         // buffer and stall playback (confirmed 卡顿 root cause: buffer underrun).
         playerItem.preferredForwardBufferDuration = 20
+        // When weak-network recovery has capped quality, also pin the peak
+        // bitrate so AVPlayer actually rides a low-bitrate variant (a 1080p qn
+        // can still expose a high-bitrate rep that an already-slow node can't feed).
+        if Settings.runtimeQualityCap != nil {
+            playerItem.preferredPeakBitRate = 4_000_000
+        }
         let player = AVPlayer(playerItem: playerItem)
         player.automaticallyWaitsToMinimizeStalling = true
         playerVC?.player = player
