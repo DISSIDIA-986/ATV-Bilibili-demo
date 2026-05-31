@@ -440,6 +440,18 @@ enum BVideoUrlUtils {
         return blacklistedHosts.contains(h)
     }
 
+    /// Hosts to avoid when a better mirror exists in the same playurl:
+    /// - PCDN / P2P CDN (szbdyd / mcdn): cheap, throttled.
+    /// - G-Core overseas mirror (`mirrorcosov` -> gcdn.co): confirmed to deliver
+    ///   in bursts then 0 Mbps for overseas (Canada) users; Akamai/Tencent
+    ///   mirrors in the same response are far faster. Demotion is safe: it only
+    ///   reorders when a non-low-priority alternative is present, otherwise the
+    ///   host is still used.
+    private static func isLowPriorityCDN(_ url: String) -> Bool {
+        return url.contains("szbdyd.com") || url.contains("mcdn.bilivideo.cn")
+            || url.contains("mirrorcosov") || url.contains("gcdn.co") || url.contains("gcore")
+    }
+
     static func sortUrls(base: String, backup: [String]?) -> [String] {
         var urls = [base]
         if let backup {
@@ -447,17 +459,14 @@ enum BVideoUrlUtils {
         }
         return
             urls.sorted { lhs, rhs in
-                // hard-demote hosts that already stalled this session
+                // tier 1 (worst): hosts that already stalled this session
                 let lhsBL = isBlacklisted(lhs), rhsBL = isBlacklisted(rhs)
                 if lhsBL != rhsBL { return !lhsBL }
-                let lhsIsPCDN = lhs.contains("szbdyd.com") || lhs.contains("mcdn.bilivideo.cn")
-                let rhsIsPCDN = rhs.contains("szbdyd.com") || rhs.contains("mcdn.bilivideo.cn")
-                switch (lhsIsPCDN, rhsIsPCDN) {
-                case (true, false): return false
-                case (false, true): return true
-                case (true, true): fallthrough
-                case (false, false): return lhs > rhs
-                }
+                // tier 2: PCDN + G-Core overseas — avoid when a better mirror exists
+                let lhsLow = isLowPriorityCDN(lhs), rhsLow = isLowPriorityCDN(rhs)
+                if lhsLow != rhsLow { return !lhsLow }
+                // tier 3: stable order
+                return lhs > rhs
             }
     }
 
