@@ -34,15 +34,20 @@ class StutterProbePlugin: NSObject, CommonPlayerPlugin {
         return dir.appendingPathComponent("stutter-probe.log")
     }()
 
+    // off-main so the file write never contaminates the main-thread hitch watchdog
+    private static let ioQueue = DispatchQueue(label: "stutterprobe.io", qos: .utility)
+
     private func record(_ line: String) {
         Logger.info("\(line)")
         let stamped = "\(Date()) \(line)\n"
-        guard let data = stamped.data(using: .utf8) else { return }
-        let url = Self.logURL
-        if let handle = try? FileHandle(forWritingTo: url) {
-            handle.seekToEndOfFile(); handle.write(data); try? handle.close()
-        } else {
-            try? stamped.write(to: url, atomically: true, encoding: .utf8)
+        Self.ioQueue.async {
+            guard let data = stamped.data(using: .utf8) else { return }
+            let url = Self.logURL
+            if let handle = try? FileHandle(forWritingTo: url) {
+                handle.seekToEndOfFile(); handle.write(data); try? handle.close()
+            } else {
+                try? stamped.write(to: url, atomically: true, encoding: .utf8)
+            }
         }
     }
 
@@ -109,18 +114,21 @@ class StutterProbePlugin: NSObject, CommonPlayerPlugin {
         // cumulative stalls / dropped across all events (ignore -1 = unknown)
         let totalStalls = log.events.reduce(0) { $0 + max(0, $1.numberOfStalls) }
         let totalDropped = log.events.reduce(0) { $0 + max(0, $1.numberOfDroppedVideoFrames) }
-        let dStalls = totalStalls - lastStalls
-        let dDropped = totalDropped - lastDropped
+        // clamp: access log can reset on quality reload, making totals shrink
+        let dStalls = max(0, totalStalls - lastStalls)
+        let dDropped = max(0, totalDropped - lastDropped)
         lastStalls = totalStalls; lastDropped = totalDropped
 
         let obs = last.observedBitrate / 1_000_000.0
         let ind = last.indicatedBitrate / 1_000_000.0
+        // serverAddress is the real connected CDN IP (reliable). uri may be the
+        // atv:// custom-scheme placeholder, so log its host:port raw rather than
+        // guessing a pcdn flag — judge PCDN later from the actual host/ip.
         let ip = last.serverAddress ?? "?"
         let changes = last.numberOfServerAddressChanges
-        // PCDN heuristic: server URI carries a non-standard port
-        let uri = last.uri ?? ""
-        let pcdn = uri.contains("szbdyd.com") || uri.contains("mcdn.bilivideo") || (URLComponents(string: uri)?.port != nil)
+        let comp = URLComponents(string: last.uri ?? "")
+        let uriHost = "\(comp?.host ?? "?"):\(comp?.port.map(String.init) ?? "-")"
 
-        record("[StutterProbe] tcs=\(tcs) wait=\(waiting) | dStalls=\(dStalls) dDrop=\(dDropped) | obs=\(String(format: "%.2f", obs))/ind=\(String(format: "%.2f", ind))Mbps | hitches=\(hitches)/\(frames)f worst=\(String(format: "%.0f", worst))ms | ip=\(ip) ipChg=\(changes) pcdn=\(pcdn)")
+        record("[StutterProbe] tcs=\(tcs) wait=\(waiting) | dStalls=\(dStalls) dDrop=\(dDropped) | obs=\(String(format: "%.2f", obs))/ind=\(String(format: "%.2f", ind))Mbps | hitches=\(hitches)/\(frames)f worst=\(String(format: "%.0f", worst))ms | ip=\(ip) ipChg=\(changes) uriHost=\(uriHost)")
     }
 }
