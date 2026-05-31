@@ -73,6 +73,9 @@ class VideoPlayerViewModel {
 
     private func fetchVideoData() async throws -> PlayerDetailData {
         assert(playInfo.isCidVaild)
+        // fresh video / next episode: drop any session quality cap from a prior
+        // video's auto stall-recovery so this video honors the user's preference.
+        Settings.runtimeQualityCap = nil
         let aid = playInfo.aid
         guard let cid = playInfo.cid else {
             throw "Video cid is missing"
@@ -202,6 +205,9 @@ class VideoPlayerViewModel {
 
     /// 重新加载当前视频（用于清晰度切换）
     private func reloadCurrentVideo() {
+        // capture current position BEFORE tearing down the play plugin so the
+        // reload resumes where we are instead of restarting from 0
+        let resumePos = playPlugin?.currentPlaybackTime
         // 移除旧的播放和清晰度插件
         if let playPlugin {
             Logger.debug("reloadCurrentVideo: remove previous playPlugin for quality change")
@@ -238,8 +244,8 @@ class VideoPlayerViewModel {
                     playerInfo: nil,
                     videoPlayURLInfo: playData
                 )
-                // 不设置起始位置，让播放器从当前位置继续（如果可能）
-                newData.playerStartPos = nil
+                // resume from the position captured before teardown (nil => from start)
+                newData.playerStartPos = resumePos
 
                 // 初始化新播放器组件
                 let player = BVideoPlayPlugin(detailData: newData)
@@ -317,7 +323,24 @@ class VideoPlayerViewModel {
 
         let stutterProbe = StutterProbePlugin()
 
-        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, stutterProbe, playlist, quality]
+        // weak-network auto recovery: repeated stalls -> cap to 1080p + reload
+        let stallRecovery = StallRecoveryPlugin()
+        stallRecovery.onStallThresholdReached = { [weak self] in
+            guard let self else { return }
+            guard Settings.autoDowngradeOnStall else {
+                Logger.info("[StallRecovery] auto-downgrade disabled by setting")
+                return
+            }
+            guard Settings.effectiveQuality.qn > MediaQualityEnum.quality_1080p.qn else {
+                Logger.info("[StallRecovery] already at/below 1080p, no downgrade")
+                return
+            }
+            Logger.info("[StallRecovery] repeated stalls -> cap to 1080p and reload (preserving position)")
+            Settings.runtimeQualityCap = .quality_1080p
+            self.reloadCurrentVideo()
+        }
+
+        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, stutterProbe, stallRecovery, playlist, quality]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)

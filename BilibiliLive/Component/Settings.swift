@@ -75,6 +75,24 @@ enum Settings {
     @UserDefaultCodable("Settings.mediaQuality", defaultValue: .quality_1080p)
     static var mediaQuality: MediaQualityEnum
 
+    /// Session-only quality cap applied by auto stall-recovery. Never persisted;
+    /// reset to nil at the start of each fresh video load (fetchVideoData), so a
+    /// weak-network downgrade does NOT clobber the user's saved mediaQuality.
+    static var runtimeQualityCap: MediaQualityEnum?
+
+    /// Quality actually used for playurl requests: the lower of the user's saved
+    /// preference and any active session cap.
+    static var effectiveQuality: MediaQualityEnum {
+        guard let cap = runtimeQualityCap else { return mediaQuality }
+        return cap.qn < mediaQuality.qn ? cap : mediaQuality
+    }
+
+    /// When on, two playback stalls in a session auto-cap quality to 1080p and
+    /// reload (preserving position). Manual quality changes still work via the
+    /// in-player quality selector.
+    @UserDefault("Settings.autoDowngradeOnStall", defaultValue: true)
+    static var autoDowngradeOnStall: Bool
+
     @UserDefaultCodable("Settings.mediaPlayerSpeed", defaultValue: PlaySpeed.default)
     static var mediaPlayerSpeed: PlaySpeed
 

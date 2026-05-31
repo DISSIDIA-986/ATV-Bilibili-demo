@@ -31,6 +31,13 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
         }
     }
 
+    /// Current playback position in whole seconds, if meaningful. Used to
+    /// preserve position across a quality reload.
+    var currentPlaybackTime: Int? {
+        guard let t = playerVC?.player?.currentTime().seconds, t.isFinite, t > 0 else { return nil }
+        return Int(t)
+    }
+
     func playerDidDismiss(playerVC: AVPlayerViewController) {
         guard let currentTime = playerVC.player?.currentTime().seconds, currentTime > 0 else { return }
         WebRequest.reportWatchHistory(aid: playData.aid, cid: playData.cid, currentTime: Int(currentTime), epid: playData.epid, seasonId: playData.seasonId, isBangumi: playData.isBangumi)
@@ -64,7 +71,11 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
     @MainActor
     func prepare(toPlay asset: AVURLAsset) async {
         let playerItem = AVPlayerItem(asset: asset)
+        // Deeper forward buffer so transient CDN throughput dips don't drain the
+        // buffer and stall playback (confirmed 卡顿 root cause: buffer underrun).
+        playerItem.preferredForwardBufferDuration = 20
         let player = AVPlayer(playerItem: playerItem)
+        player.automaticallyWaitsToMinimizeStalling = true
         playerVC?.player = player
     }
 }

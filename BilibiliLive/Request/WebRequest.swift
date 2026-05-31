@@ -463,20 +463,20 @@ extension WebRequest {
     }
 
     static func requestPlayUrl(aid: Int, cid: Int) async throws -> VideoPlayURLInfo {
-        let quality = Settings.mediaQuality
+        let quality = Settings.effectiveQuality
         return try await request(url: EndPoint.playUrl,
                                  parameters: ["avid": aid, "cid": cid, "qn": quality.qn, "type": "", "fnver": 0, "fnval": quality.fnval, "otype": "json"])
     }
 
     static func requestPcgPlayUrl(aid: Int, cid: Int) async throws -> VideoPlayURLInfo {
-        let quality = Settings.mediaQuality
+        let quality = Settings.effectiveQuality
         return try await request(url: EndPoint.pcgPlayUrl,
                                  parameters: ["avid": aid, "cid": cid, "qn": quality.qn, "support_multi_audio": true, "fnver": 0, "fnval": quality.fnval, "fourk": 1],
                                  dataObj: "result")
     }
 
     static func requestAreaLimitPcgPlayUrl(epid: Int, cid: Int, area: String) async throws -> VideoPlayURLInfo {
-        let quality = Settings.mediaQuality
+        let quality = Settings.effectiveQuality
         let customServer = Settings.areaLimitCustomServer
         Logger.info("[AreaLimit] 开始请求港澳台解锁: epid=\(epid), cid=\(cid), area=\(area), server=\(customServer)")
 
