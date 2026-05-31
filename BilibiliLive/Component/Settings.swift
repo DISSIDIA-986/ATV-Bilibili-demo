@@ -24,6 +24,7 @@ enum AreaLimitServer: String, Codable, CaseIterable {
     case suysker = "bilibili.suysker.xyz"
     case llix = "bili.lli.cx"
     case kirara = "bstar.kirara-fantasia.moe"
+    case atri = "atri.ink"
     case bili33 = "hk.biliroaming.bili33.top"
     case custom
 
@@ -33,6 +34,7 @@ enum AreaLimitServer: String, Codable, CaseIterable {
         case .suysker: return "bilibili.suysker.xyz"
         case .llix: return "bili.lli.cx"
         case .kirara: return "bstar.kirara-fantasia.moe"
+        case .atri: return "atri.ink"
         case .bili33: return "hk.biliroaming.bili33.top (港澳)"
         case .custom: return "自定义服务器"
         }
