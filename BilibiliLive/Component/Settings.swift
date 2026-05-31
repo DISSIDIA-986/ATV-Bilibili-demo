@@ -24,6 +24,7 @@ enum AreaLimitServer: String, Codable, CaseIterable {
     case suysker = "bilibili.suysker.xyz"
     case llix = "bili.lli.cx"
     case kirara = "bstar.kirara-fantasia.moe"
+    case atri = "atri.ink"
     case bili33 = "hk.biliroaming.bili33.top"
     case custom
 
@@ -33,6 +34,7 @@ enum AreaLimitServer: String, Codable, CaseIterable {
         case .suysker: return "bilibili.suysker.xyz"
         case .llix: return "bili.lli.cx"
         case .kirara: return "bstar.kirara-fantasia.moe"
+        case .atri: return "atri.ink"
         case .bili33: return "hk.biliroaming.bili33.top (港澳)"
         case .custom: return "自定义服务器"
         }
@@ -72,6 +74,24 @@ enum Settings {
 
     @UserDefaultCodable("Settings.mediaQuality", defaultValue: .quality_1080p)
     static var mediaQuality: MediaQualityEnum
+
+    /// Session-only quality cap applied by auto stall-recovery. Never persisted;
+    /// reset to nil at the start of each fresh video load (fetchVideoData), so a
+    /// weak-network downgrade does NOT clobber the user's saved mediaQuality.
+    static var runtimeQualityCap: MediaQualityEnum?
+
+    /// Quality actually used for playurl requests: the lower of the user's saved
+    /// preference and any active session cap.
+    static var effectiveQuality: MediaQualityEnum {
+        guard let cap = runtimeQualityCap else { return mediaQuality }
+        return cap.qn < mediaQuality.qn ? cap : mediaQuality
+    }
+
+    /// When on, two playback stalls in a session auto-cap quality to 1080p and
+    /// reload (preserving position). Manual quality changes still work via the
+    /// in-player quality selector.
+    @UserDefault("Settings.autoDowngradeOnStall", defaultValue: true)
+    static var autoDowngradeOnStall: Bool
 
     @UserDefaultCodable("Settings.mediaPlayerSpeed", defaultValue: PlaySpeed.default)
     static var mediaPlayerSpeed: PlaySpeed

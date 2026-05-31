@@ -73,6 +73,11 @@ class VideoPlayerViewModel {
 
     private func fetchVideoData() async throws -> PlayerDetailData {
         assert(playInfo.isCidVaild)
+        // fresh video / next episode: drop any session quality cap and CDN
+        // blacklist from a prior video's auto stall-recovery so this video starts
+        // clean and honors the user's preference.
+        Settings.runtimeQualityCap = nil
+        BVideoUrlUtils.blacklistedHosts.removeAll()
         let aid = playInfo.aid
         guard let cid = playInfo.cid else {
             throw "Video cid is missing"
@@ -200,8 +205,20 @@ class VideoPlayerViewModel {
         }
     }
 
+    private var isReloading = false
+
     /// 重新加载当前视频（用于清晰度切换）
     private func reloadCurrentVideo() {
+        // single-flight: a stall during an in-progress reload must not kick off
+        // an overlapping reload (the live log showed reload churn otherwise)
+        guard !isReloading else {
+            Logger.info("[VideoPlayer] reload already in progress, ignoring")
+            return
+        }
+        isReloading = true
+        // capture current position BEFORE tearing down the play plugin so the
+        // reload resumes where we are instead of restarting from 0
+        let resumePos = playPlugin?.currentPlaybackTime
         // 移除旧的播放和清晰度插件
         if let playPlugin {
             Logger.debug("reloadCurrentVideo: remove previous playPlugin for quality change")
@@ -238,8 +255,8 @@ class VideoPlayerViewModel {
                     playerInfo: nil,
                     videoPlayURLInfo: playData
                 )
-                // 不设置起始位置，让播放器从当前位置继续（如果可能）
-                newData.playerStartPos = nil
+                // resume from the position captured before teardown (nil => from start)
+                newData.playerStartPos = resumePos
 
                 // 初始化新播放器组件
                 let player = BVideoPlayPlugin(detailData: newData)
@@ -259,6 +276,7 @@ class VideoPlayerViewModel {
             } catch let err {
                 Logger.warn("[VideoPlayer] Failed to reload video: \(err.localizedDescription)")
             }
+            isReloading = false
         }
     }
 
@@ -315,7 +333,32 @@ class VideoPlayerViewModel {
         }
         qualityPlugin = quality
 
-        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, playlist, quality]
+        // weak-network auto recovery: a sustained stall -> cap to 1080p and reload.
+        // The reload re-fetches playurl (fresh CDN) and, with the cap active,
+        // BVideoPlayPlugin also pins preferredPeakBitRate low. We reload even when
+        // already at 1080p because the dominant failure was a CDN node going to
+        // 0 Mbps — a fresh playurl lands on a different node.
+        let stallRecovery = StallRecoveryPlugin()
+        stallRecovery.onSustainedStall = { [weak self] in
+            guard let self else { return }
+            guard Settings.autoDowngradeOnStall else {
+                Logger.info("[StallRecovery] auto-recovery disabled by setting")
+                return
+            }
+            // Blacklist the stalled CDN host so the reload's sortUrls demotes it
+            // and we escape to a different node (the real fix: a fresh playurl
+            // alone returns the SAME flaky host, so the reload never escaped).
+            if let badHost = playPlugin?.currentVideoHost {
+                BVideoUrlUtils.blacklistedHosts.insert(badHost)
+                Logger.info("[StallRecovery] blacklisted stalled CDN host: \(badHost)")
+            }
+            let from = Settings.effectiveQuality
+            Settings.runtimeQualityCap = .quality_1080p
+            Logger.info("[StallRecovery] recovering: \(from.qn) -> cap 1080p, reload to escape bad node (position preserved)")
+            self.reloadCurrentVideo()
+        }
+
+        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, stallRecovery, playlist, quality]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)
