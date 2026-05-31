@@ -333,8 +333,6 @@ class VideoPlayerViewModel {
         }
         qualityPlugin = quality
 
-        let stutterProbe = StutterProbePlugin()
-
         // weak-network auto recovery: a sustained stall -> cap to 1080p and reload.
         // The reload re-fetches playurl (fresh CDN) and, with the cap active,
         // BVideoPlayPlugin also pins preferredPeakBitRate low. We reload even when
@@ -360,7 +358,7 @@ class VideoPlayerViewModel {
             self.reloadCurrentVideo()
         }
 
-        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, stutterProbe, stallRecovery, playlist, quality]
+        var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, stallRecovery, playlist, quality]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)
