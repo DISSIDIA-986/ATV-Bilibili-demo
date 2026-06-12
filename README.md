@@ -1,8 +1,21 @@
-# BiliBili tvOS 客户端
+<h1 align="center">BiliBili tvOS 客户端</h1>
 
-> 在 Apple TV 上享受完整的 B站体验
+<p align="center">在 Apple TV 上享受完整的 B 站体验 —— 直播 · 弹幕 · HDR/杜比视界 · 港澳台解锁 · 一键部署</p>
 
-**本项目没有任何授权的 Testflight 发放以及任何收费版本，请注意辨别安全性。**
+<p align="center">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Apple%20TV-black?logo=apple&logoColor=white">
+  <img alt="tvOS" src="https://img.shields.io/badge/tvOS-16.0%2B-blue">
+  <img alt="Swift" src="https://img.shields.io/badge/Swift-5-orange?logo=swift&logoColor=white">
+  <img alt="License" src="https://img.shields.io/badge/license-GPL--2.0-green">
+  <a href="https://t.me/appletvbilibilidemo"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-社区-26A5E4?logo=telegram&logoColor=white"></a>
+  <a href="https://github.com/DISSIDIA-986/ATV-Bilibili-demo/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/DISSIDIA-986/ATV-Bilibili-demo?style=social"></a>
+</p>
+
+<p align="center">
+  <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/portfolio/demos/atv-bilibili-hero.gif" width="80%" alt="Apple TV 上运行的演示" />
+</p>
+
+<p align="center"><strong>本项目没有任何授权的 Testflight 发放以及任何收费版本，请注意辨别安全性。</strong></p>
 
 ---
 
@@ -18,38 +31,41 @@
 | 投屏 | 云视听小电视协议支持 |
 
 ### 增强特性 (Fork 新增)
-- **智能搜索** - B站热搜榜 + 搜索历史 + 无限滚动分页
-- **播放增强** - 循环模式、跳过片头片尾 (SponsorBlock)
-- **港澳台解锁** - BiliRoaming 代理服务器，解除番剧区域限制
-- **一键部署** - 免费开发者账号直接部署到 Apple TV，自动检测 tvOS SDK
-- **弱网防卡顿** - 智能 CDN 选路（避开 G-Core/PCDN 慢节点）、持续卡顿自动降画质并换节点、加大缓冲、切画质保留进度
-- **稳定性优化** - 连续播放防崩溃、安全模式、错误处理增强
+- **智能搜索** — B 站热搜榜 + 搜索历史 + 无限滚动分页
+- **播放增强** — 循环模式、跳过片头片尾 (SponsorBlock)
+- **港澳台解锁** — BiliRoaming 代理服务器，解除番剧区域限制
+- **一键部署** — 免费开发者账号直接部署到 Apple TV，自动检测 tvOS SDK
+- **弱网防卡顿** — 智能 CDN 选路（避开 G-Core/PCDN 慢节点）、持续卡顿自动降画质并换节点、加大缓冲、切画质保留进度
+- **稳定性优化** — 连续播放防崩溃、安全模式、错误处理增强
 
 ---
 
 ## 截图
 
-**QR码登录** - 扫码快速登录
-<p align="center">
-  <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/atv_bilibili_screenshot_1.png" width="60%" />
-</p>
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/atv_bilibili_screenshot_2.png" width="100%" /><br/>
+      <sub><b>主导航 & 直播</b> — 9 个标签页 + 实时弹幕</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/atv_bilibili_screenshot_4.png" width="100%" /><br/>
+      <sub><b>智能搜索</b> — 热搜榜 + 分页加载 + 历史记录</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/simulator_screenshot_apple_tv_4k_3rd_gen_20260109_225658.png" width="100%" /><br/>
+      <sub><b>番剧影视</b> — 区域解锁后的完整片库</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/atv_bilibili_screenshot_1.png" width="100%" /><br/>
+      <sub><b>QR 码登录</b> — 扫码快速登录</sub>
+    </td>
+  </tr>
+</table>
 
-**主导航 & 智能搜索** - 9个标签页 + 热搜榜
-<p align="center">
-  <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/atv_bilibili_screenshot_2.png" width="45%" />
-  <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/atv_bilibili_screenshot_4.png" width="45%" />
-</p>
-
-**番剧影视** & **播放增强**
-<p align="center">
-  <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/simulator_screenshot_apple_tv_4k_3rd_gen_20260109_225658.png" width="45%" />
-  <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/simulator_screenshot_apple_tv_4k_3rd_gen_20260109_225450.jpg" width="45%" />
-</p>
-
-**通用设置** - 投屏、画质、音视频选项
-<p align="center">
-  <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/simulator_screenshot_apple_tv_4k_3rd_gen_20260109_224405.jpg" width="60%" />
-</p>
+<sub>提示：弹幕防挡、清晰度切换、投屏等播放增强细节见顶部演示动画与下方架构图。</sub>
 
 ---
 
