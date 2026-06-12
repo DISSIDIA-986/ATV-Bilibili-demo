@@ -86,7 +86,7 @@
 ## 安装
 
 ### 未签名 IPA
-从 [Releases](https://github.com/yichengchen/ATV-Bilibili-demo/releases/tag/nightly) 下载，使用 Sideloadly 或 AltStore 安装。
+从本仓库 [Releases](https://github.com/DISSIDIA-986/ATV-Bilibili-demo/releases) 下载：`nightly` 为每次推送 main 自动构建的滚动版，稳定版见 `latest`。使用 Sideloadly 或 AltStore 侧载安装。
 
 ### 源码编译
 ```bash

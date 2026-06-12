@@ -36,11 +36,13 @@ jobs:
       #       res.data.artifacts
       #         .forEach(({ id }) => { github.rest.actions.deleteArtifact({ owner, repo, artifact_id: id, }) })
 
-      - name: Delete GitHub release if exist then create release
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.repository.fork == false
+      - name: Publish rolling nightly (unsigned IPA)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mv BilbiliAtvDemo.ipa BilbiliAtvDemo-unsigned.ipa
-          gh release view "nightly" && gh release delete "nightly" -y --cleanup-tag
-          gh release create "nightly" BilbiliAtvDemo-unsigned.ipa -t "Nightly" -p
+          gh release delete "nightly" -y --cleanup-tag || true
+          gh release create "nightly" BilbiliAtvDemo-unsigned.ipa \
+            -t "Nightly (unsigned)" -p \
+            --notes "滚动构建的未签名 IPA，每次推送 main 自动更新。使用 Sideloadly / AltStore 侧载安装；或源码 \`fastlane build_unsign_ipa\` 自行构建。稳定版本见 [Releases](../../releases/latest)。"
