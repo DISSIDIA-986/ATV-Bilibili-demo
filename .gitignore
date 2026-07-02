@@ -95,3 +95,4 @@ BuildTools/.build/
 # 忽略包含敏感信息的配置文件
 Config/Dev/Config.plist
 
+.gstack/
