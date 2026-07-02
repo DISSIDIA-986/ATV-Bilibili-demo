@@ -409,6 +409,11 @@ class VideoPlayerViewModel {
             plugins.append(infoPlugin)
         }
 
+        // TEMPORARY diagnostic probe for observing the stutter fixes on-device.
+        // Logs [StutterProbe] every 2s to Library/Caches/Logs. Remove this line +
+        // StutterProbePlugin.swift (revert this commit) once observation confirms.
+        plugins.append(StutterProbePlugin())
+
         return plugins
     }
 }
