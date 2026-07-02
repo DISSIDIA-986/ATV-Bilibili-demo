@@ -80,6 +80,12 @@ enum Settings {
     /// weak-network downgrade does NOT clobber the user's saved mediaQuality.
     static var runtimeQualityCap: MediaQualityEnum?
 
+    /// Session-only flag: the network path can't feed even the capped quality, so
+    /// a reload should pin the peak bitrate low enough for AVPlayer to ride a
+    /// sub-1080p DASH rep. Set by proactive low-bandwidth / freeze recovery, reset
+    /// per fresh video (fetchVideoData). Independent of runtimeQualityCap.
+    static var runtimeLowBandwidth: Bool = false
+
     /// Quality actually used for playurl requests: the lower of the user's saved
     /// preference and any active session cap.
     static var effectiveQuality: MediaQualityEnum {

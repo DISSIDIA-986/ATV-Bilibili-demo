@@ -41,6 +41,12 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
     /// Host of the CDN node currently serving video, for stall blacklisting.
     var currentVideoHost: String? { playerDelegate?.primaryVideoHost }
 
+    /// Live peak-bitrate cap on the CURRENT item. Proactive low-bandwidth recovery
+    /// uses this to make AVPlayer ride a lower DASH rep with no reload.
+    func setPeakBitRate(_ bps: Double) {
+        playerVC?.player?.currentItem?.preferredPeakBitRate = bps
+    }
+
     func playerDidDismiss(playerVC: AVPlayerViewController) {
         guard let currentTime = playerVC.player?.currentTime().seconds, currentTime > 0 else { return }
         WebRequest.reportWatchHistory(aid: playData.aid, cid: playData.cid, currentTime: Int(currentTime), epid: playData.epid, seasonId: playData.seasonId, isBangumi: playData.isBangumi)
@@ -80,7 +86,10 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
         // When weak-network recovery has capped quality, also pin the peak
         // bitrate so AVPlayer actually rides a low-bitrate variant (a 1080p qn
         // can still expose a high-bitrate rep that an already-slow node can't feed).
-        if Settings.runtimeQualityCap != nil {
+        // A confirmed low-bandwidth path pins even lower to reach a sub-1080p rep.
+        if Settings.runtimeLowBandwidth {
+            playerItem.preferredPeakBitRate = 1_500_000
+        } else if Settings.runtimeQualityCap != nil {
             playerItem.preferredPeakBitRate = 4_000_000
         }
         let player = AVPlayer(playerItem: playerItem)

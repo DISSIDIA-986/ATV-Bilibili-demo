@@ -440,16 +440,44 @@ enum BVideoUrlUtils {
         return blacklistedHosts.contains(h)
     }
 
-    /// Hosts to avoid when a better mirror exists in the same playurl:
-    /// - PCDN / P2P CDN (szbdyd / mcdn): cheap, throttled.
-    /// - G-Core overseas mirror (`mirrorcosov` -> gcdn.co): confirmed to deliver
-    ///   in bursts then 0 Mbps for overseas (Canada) users; Akamai/Tencent
-    ///   mirrors in the same response are far faster. Demotion is safe: it only
-    ///   reorders when a non-low-priority alternative is present, otherwise the
-    ///   host is still used.
-    private static func isLowPriorityCDN(_ url: String) -> Bool {
-        return url.contains("szbdyd.com") || url.contains("mcdn.bilivideo.cn")
-            || url.contains("mirrorcosov") || url.contains("gcdn.co") || url.contains("gcore")
+    /// Match a needle against the URL's HOST only (falling back to the whole URL
+    /// if it can't be parsed), so a benign path segment like "/gcore-off/" can't
+    /// be misclassified as a CDN tier. This matters more now that G-Core is the
+    /// absolute-worst tier: a false positive would sink a good host to the floor.
+    private static func hostContains(_ url: String, _ needle: String) -> Bool {
+        return (host(of: url) ?? url).contains(needle)
+    }
+
+    /// G-Core overseas mirror (`mirrorcosov` -> gcdn.co): confirmed on-device to
+    /// deliver in bursts then collapse to 0 Mbps for overseas (Canada) users.
+    /// This is the WORST possible host — worse even than a normal mirror that
+    /// merely stalled this session, because that stall is often a transient tvOS
+    /// AVPlayer wedge (throughput stays healthy) rather than the host being bad.
+    private static func isGCoreOverseas(_ url: String) -> Bool {
+        return hostContains(url, "mirrorcosov") || hostContains(url, "gcdn.co") || hostContains(url, "gcore")
+    }
+
+    /// PCDN / P2P CDN (szbdyd / mcdn): cheap, throttled. Avoid when a better
+    /// mirror exists, but still preferable to a stalled node or G-Core.
+    private static func isPCDN(_ url: String) -> Bool {
+        return hostContains(url, "szbdyd.com") || hostContains(url, "mcdn.bilivideo.cn")
+    }
+
+    /// Preference rank, lower = better. sortUrls only reorders (never removes),
+    /// so even a rank-3 host is still used when it is the only option.
+    ///
+    /// Rank 3 (G-Core) sits BELOW the reactive blacklist deliberately: the live
+    /// probe showed a healthy Akamai node briefly wedge (obs≈5 Mbps yet AVPlayer
+    /// went to waitingToMinimizeStalls — a tvOS-26 player wedge, not a CDN fault).
+    /// The old ordering blacklisted that good host and promoted G-Core above it,
+    /// so recovery escaped a transient wedge straight onto the confirmed-0-Mbps
+    /// node and manufactured a real stall. Keeping G-Core last means a blacklisted
+    /// normal host is retried (a fresh AVPlayerItem cures the wedge) instead.
+    private static func rank(_ url: String) -> Int {
+        if isGCoreOverseas(url) { return 3 }
+        if isBlacklisted(url) { return 2 }
+        if isPCDN(url) { return 1 }
+        return 0
     }
 
     static func sortUrls(base: String, backup: [String]?) -> [String] {
@@ -459,13 +487,9 @@ enum BVideoUrlUtils {
         }
         return
             urls.sorted { lhs, rhs in
-                // tier 1 (worst): hosts that already stalled this session
-                let lhsBL = isBlacklisted(lhs), rhsBL = isBlacklisted(rhs)
-                if lhsBL != rhsBL { return !lhsBL }
-                // tier 2: PCDN + G-Core overseas — avoid when a better mirror exists
-                let lhsLow = isLowPriorityCDN(lhs), rhsLow = isLowPriorityCDN(rhs)
-                if lhsLow != rhsLow { return !lhsLow }
-                // tier 3: stable order
+                let lhsRank = rank(lhs), rhsRank = rank(rhs)
+                if lhsRank != rhsRank { return lhsRank < rhsRank }
+                // stable order within a tier
                 return lhs > rhs
             }
     }

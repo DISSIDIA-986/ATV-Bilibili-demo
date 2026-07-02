@@ -77,6 +77,7 @@ class VideoPlayerViewModel {
         // blacklist from a prior video's auto stall-recovery so this video starts
         // clean and honors the user's preference.
         Settings.runtimeQualityCap = nil
+        Settings.runtimeLowBandwidth = false
         BVideoUrlUtils.blacklistedHosts.removeAll()
         let aid = playInfo.aid
         guard let cid = playInfo.cid else {
@@ -339,23 +340,42 @@ class VideoPlayerViewModel {
         // already at 1080p because the dominant failure was a CDN node going to
         // 0 Mbps — a fresh playurl lands on a different node.
         let stallRecovery = StallRecoveryPlugin()
-        stallRecovery.onSustainedStall = { [weak self] in
+        stallRecovery.onRecover = { [weak self] action in
             guard let self else { return }
             guard Settings.autoDowngradeOnStall else {
                 Logger.info("[StallRecovery] auto-recovery disabled by setting")
                 return
             }
-            // Blacklist the stalled CDN host so the reload's sortUrls demotes it
-            // and we escape to a different node (the real fix: a fresh playurl
-            // alone returns the SAME flaky host, so the reload never escaped).
-            if let badHost = playPlugin?.currentVideoHost {
-                BVideoUrlUtils.blacklistedHosts.insert(badHost)
-                Logger.info("[StallRecovery] blacklisted stalled CDN host: \(badHost)")
+            switch action {
+            case let .lowerPeakBitrate(peak):
+                // Live, seamless: pin the peak bitrate on the CURRENT item so
+                // AVPlayer downshifts to a lower DASH rep that fits the pipe.
+                // No reload, no host change — the host is fine, bandwidth is low.
+                Logger.info("[StallRecovery] low bandwidth -> live peak cap \(peak) (no reload)")
+                playPlugin?.setPeakBitRate(peak)
+            case .reloadEscapeHost:
+                // Blacklist the stalled CDN host so the reload's sortUrls demotes
+                // it and we escape to a different node (a fresh playurl alone
+                // returns the SAME flaky host, so the reload never escaped).
+                if let badHost = playPlugin?.currentVideoHost {
+                    BVideoUrlUtils.blacklistedHosts.insert(badHost)
+                    Logger.info("[StallRecovery] blacklisted stalled CDN host: \(badHost)")
+                }
+                let from = Settings.effectiveQuality
+                Settings.runtimeQualityCap = .quality_1080p
+                Logger.info("[StallRecovery] recovering: \(from.qn) -> cap 1080p, reload to escape bad node (position preserved)")
+                self.reloadCurrentVideo()
+            case .reloadLowBandwidth:
+                // Host is fine (or the player wedged): don't blacklist. Cap quality
+                // and pin a low peak so the reload lands on a sub-DV rep that a
+                // ~1.5 Mbps overseas pipe can actually feed. A fresh AVPlayerItem
+                // also clears a tvOS-26 .paused starvation wedge.
+                let from = Settings.effectiveQuality
+                Settings.runtimeQualityCap = .quality_1080p
+                Settings.runtimeLowBandwidth = true
+                Logger.info("[StallRecovery] recovering: \(from.qn) -> cap 1080p + low-bandwidth peak, reload (no blacklist, position preserved)")
+                self.reloadCurrentVideo()
             }
-            let from = Settings.effectiveQuality
-            Settings.runtimeQualityCap = .quality_1080p
-            Logger.info("[StallRecovery] recovering: \(from.qn) -> cap 1080p, reload to escape bad node (position preserved)")
-            self.reloadCurrentVideo()
         }
 
         var plugins: [CommonPlayerPlugin] = [player, danmu, playSpeed, upnp, debug, stallRecovery, playlist, quality]
