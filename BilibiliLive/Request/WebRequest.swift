@@ -358,16 +358,19 @@ extension WebRequest {
             "played_time": currentTime,
         ]
 
-        if isBangumi {
+        // 番剧判定用超集：只要 isBangumi 或拿到了 epid/seasonId 就按番剧上报，避免
+        // 某些路径 isBangumi=false 却带 epid 时走普通视频分支，导致 B站不按番剧记历史。
+        let reportAsBangumi = isBangumi || (epid ?? 0) > 0 || (seasonId ?? 0) > 0
+        if reportAsBangumi {
             // 番剧类型标识
             parameters["type"] = 4
             parameters["sub_type"] = 1
 
             // 番剧ID
-            if let epid = epid {
+            if let epid = epid, epid > 0 {
                 parameters["epid"] = epid
             }
-            if let seasonId = seasonId {
+            if let seasonId = seasonId, seasonId > 0 {
                 parameters["sid"] = seasonId
             }
 
@@ -380,10 +383,19 @@ extension WebRequest {
             parameters["sub_type"] = 0
         }
 
+        // 历史上报此前 fire-and-forget，服务端非0/网络失败都不可见，无法诊断跨端不同步。
+        // 加 completion 日志：上报参数 + 返回 code/message，便于真机核对。
         requestJSON(method: .post,
                     url: EndPoint.heartbeat,
-                    parameters: parameters,
-                    complete: nil)
+                    parameters: parameters)
+        { result in
+            switch result {
+            case .success:
+                Logger.debug("[History] report ok aid=\(aid) cid=\(cid) t=\(currentTime) bangumi=\(reportAsBangumi) epid=\(epid ?? 0) sid=\(seasonId ?? 0)")
+            case let .failure(err):
+                Logger.warn("[History] report FAILED aid=\(aid) cid=\(cid) t=\(currentTime) bangumi=\(reportAsBangumi) epid=\(epid ?? 0) sid=\(seasonId ?? 0) err=\(err)")
+            }
+        }
     }
 
     static func requestUpSpaceVideo(mid: Int, page: Int, pageSize: Int = 50) async throws -> [UpSpaceReq.List.VListData] {
