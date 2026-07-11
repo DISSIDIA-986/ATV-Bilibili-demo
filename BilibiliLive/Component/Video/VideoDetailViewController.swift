@@ -392,19 +392,20 @@ class VideoDetailViewController: UIViewController {
 
     @IBAction func actionPlay(_ sender: Any) {
         Logger.info("[VideoDetail] actionPlay: aid=\(aid), cid=\(cid), epid=\(epid), isBangumi=\(isBangumi)")
-        let player = VideoPlayerViewController(playInfo: PlayInfo(aid: aid, cid: cid, epid: epid, isBangumi: isBangumi))
+        let player = VideoPlayerViewController(playInfo: PlayInfo(aid: aid, cid: cid, epid: epid, seasonId: isBangumi ? seasonId : nil, isBangumi: isBangumi))
         player.data = data
 
         // 优先使用分P列表作为播放序列
         if pages.count > 1, let index = pages.firstIndex(where: { $0.cid == cid }) {
-            let seq = pages.dropFirst(index).map({ PlayInfo(aid: aid, cid: $0.cid, epid: $0.epid, isBangumi: isBangumi) })
+            // 番剧每集 aid 取 $0.page（与分页点击路径一致），否则续集会串到当前集 aid。
+            let seq = pages.dropFirst(index).map({ PlayInfo(aid: isBangumi ? $0.page : aid, cid: $0.cid, epid: $0.epid, seasonId: isBangumi ? seasonId : nil, isBangumi: isBangumi) })
             if seq.count > 0 {
                 let nextProvider = VideoNextProvider(seq: seq)
                 player.nextProvider = nextProvider
             }
         } else if let related = data?.Related, related.count > 0 {
             // 如果没有多分P，使用推荐视频作为播放序列
-            var seq = [PlayInfo(aid: aid, cid: cid, epid: epid, isBangumi: isBangumi)]
+            var seq = [PlayInfo(aid: aid, cid: cid, epid: epid, seasonId: isBangumi ? seasonId : nil, isBangumi: isBangumi)]
             seq.append(contentsOf: related.map({ PlayInfo(aid: $0.aid, cid: $0.cid) }))
             let nextProvider = VideoNextProvider(seq: seq)
             player.nextProvider = nextProvider
@@ -501,7 +502,9 @@ extension VideoDetailViewController: UICollectionViewDelegate {
             let player = VideoPlayerViewController(playInfo: PlayInfo(aid: isBangumi ? page.page : aid, cid: page.cid, epid: page.epid, seasonId: isBangumi ? seasonId : nil, isBangumi: isBangumi))
             player.data = isBangumi ? nil : data
 
-            let seq = pages.dropFirst(indexPath.item).map({ PlayInfo(aid: aid, cid: $0.cid, seasonId: isBangumi ? seasonId : nil, isBangumi: isBangumi) })
+            // 与上面单播构造保持一致：番剧每集 aid 取 $0.page 并带上 $0.epid，
+            // 否则连续播放的番剧续集会串号或缺 epid，导致历史上报错乱。
+            let seq = pages.dropFirst(indexPath.item).map({ PlayInfo(aid: isBangumi ? $0.page : aid, cid: $0.cid, epid: $0.epid, seasonId: isBangumi ? seasonId : nil, isBangumi: isBangumi) })
             if seq.count > 0 {
                 let nextProvider = VideoNextProvider(seq: seq)
                 player.nextProvider = nextProvider

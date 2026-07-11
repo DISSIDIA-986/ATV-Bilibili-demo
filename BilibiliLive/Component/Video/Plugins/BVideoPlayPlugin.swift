@@ -6,18 +6,33 @@
 //
 
 import AVKit
+import UIKit
 
 class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
     private weak var playerVC: AVPlayerViewController?
     private var playerDelegate: BilibiliVideoResourceLoaderDelegate?
     private let playData: PlayerDetailData
 
+    // 历史进度上报：此前只在 playerDidDismiss 上报一次且 fire-and-forget，Apple TV 用户
+    // 常直接后台/杀进程而非优雅退出播放器，弱网下单次上报还会静默失败，导致手机端看不到
+    // ATV 观看记录。改为播放中周期性心跳 + 关键生命周期节点各 flush 一次。
+    private var historyReportObserver: Any?
+    private weak var reportPlayer: AVPlayer?
+    private var lastReportedTime = -1
+
     init(detailData: PlayerDetailData) {
         playData = detailData
     }
 
+    deinit {
+        stopHistoryReporting()
+        NotificationCenter.default.removeObserver(self)
+    }
+
     func playerDidLoad(playerVC: AVPlayerViewController) {
         self.playerVC = playerVC
+        NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground),
+                                               name: UIApplication.didEnterBackgroundNotification, object: nil)
         playerVC.player = nil
         playerVC.appliesPreferredDisplayCriteriaAutomatically = Settings.contentMatch
         Task {
@@ -47,9 +62,68 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
         playerVC?.player?.currentItem?.preferredPeakBitRate = bps
     }
 
+    // 播放器可用即开始周期心跳；换集/切码率会触发 playerDidCleanUp(旧 player) 再
+    // playerDidChange(新 player)，observer 随之重建，所以这里统一在 change 里启动。
+    func playerDidChange(player: AVPlayer) {
+        startHistoryReporting(player: player)
+    }
+
+    func playerDidPause(player: AVPlayer) {
+        flushHistory(player: player, reason: "pause")
+    }
+
+    func playerDidEnd(player: AVPlayer) {
+        flushHistory(player: player, reason: "end")
+    }
+
+    // 连续播放切集 / 切清晰度：旧 player 清理前 flush 最终进度，避免上一集漏报。
+    // 关键：切集时新插件 playerDidLoad 会把 playerVC.player 置 nil，KVO 的 cleanup 会
+    // 发给当前 active plugins（可能是新插件），若不校验就会用新集 playData 上报旧 player
+    // 时间，直接污染跨端历史。只处理属于自己的 player。
+    func playerDidCleanUp(player: AVPlayer) {
+        guard player === reportPlayer else { return }
+        flushHistory(player: player, reason: "cleanup")
+        stopHistoryReporting()
+        lastReportedTime = -1
+    }
+
     func playerDidDismiss(playerVC: AVPlayerViewController) {
-        guard let currentTime = playerVC.player?.currentTime().seconds, currentTime > 0 else { return }
-        WebRequest.reportWatchHistory(aid: playData.aid, cid: playData.cid, currentTime: Int(currentTime), epid: playData.epid, seasonId: playData.seasonId, isBangumi: playData.isBangumi)
+        flushHistory(player: playerVC.player, reason: "dismiss")
+        stopHistoryReporting()
+    }
+
+    @objc private func appDidEnterBackground() {
+        // Home / 上划杀进程前的最后一次机会补报，覆盖用户不优雅退出播放器的场景。
+        // 只用自己的 reportPlayer，避免回退到 playerVC.player 时误报别的插件的 player。
+        flushHistory(player: reportPlayer, reason: "background")
+    }
+
+    private func startHistoryReporting(player: AVPlayer) {
+        stopHistoryReporting()
+        reportPlayer = player
+        // 每 15s 上报一次当前进度（对齐 B站官方客户端的周期心跳），保证跨端可靠同步。
+        historyReportObserver = player.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 15, preferredTimescale: 1), queue: .main
+        ) { [weak self] _ in
+            self?.flushHistory(player: self?.reportPlayer, reason: "heartbeat")
+        }
+    }
+
+    private func stopHistoryReporting() {
+        if let historyReportObserver, let reportPlayer {
+            reportPlayer.removeTimeObserver(historyReportObserver)
+        }
+        historyReportObserver = nil
+        reportPlayer = nil
+    }
+
+    private func flushHistory(player: AVPlayer?, reason: String) {
+        guard let seconds = player?.currentTime().seconds, seconds.isFinite, seconds > 0 else { return }
+        let t = Int(seconds)
+        if t == lastReportedTime { return } // 同一秒不重复上报
+        lastReportedTime = t
+        Logger.debug("[History] flush(\(reason)) aid=\(playData.aid) t=\(t)")
+        WebRequest.reportWatchHistory(aid: playData.aid, cid: playData.cid, currentTime: t, epid: playData.epid, seasonId: playData.seasonId, isBangumi: playData.isBangumi)
     }
 
     @MainActor
