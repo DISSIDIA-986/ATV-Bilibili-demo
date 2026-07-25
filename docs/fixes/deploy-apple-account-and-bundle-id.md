@@ -83,6 +83,8 @@ sdk / arch / variant 区分，**没有按 target 区分的能力**。改 pbxproj
 | 手动 `deploy_to_appletv.sh --clean` | BUILD SUCCEEDED + 安装成功，76 秒 |
 | launchd 完整链路（清空时间戳强制重跑） | `rc=0`，两个 App 均 ✅，时间戳写入 |
 | Xcode 重命名后再跑 launchd | `rc=0`，新鲜度门控正常跳过 |
+| **修复后** tvOS 模拟器启动 | 进程存活，登录页 + 二维码正常渲染 |
+| **修复后** 真机启动 | 存活 45s 后由 `timeout` 以 signal 15 结束（此前 1s 内 exit 0），截图确认登录页 |
 
 launchd 日志关键行：
 
@@ -92,6 +94,58 @@ launchd 日志关键行：
 [02:16:38] [BilibiliLive] ✅ 部署成功，已重置 7 天计时。
 [02:16:39] === 结束 (rc=0) ===
 ```
+
+## 根因 3：tvOS 27 SDK 强制 UIScene 生命周期，启动即 trap
+
+部署成功后 App 在真机上**点开闪一下就退出**。这一条与 bundle ID 无关，
+是同一天升级 Xcode 26.6 → 27（tvOS SDK 26 → 27）带来的独立回归。
+
+排查过程有两个坑：
+
+1. `devicectl process launch --console` 报的是 **`exit code 0`**，看着像"干净退出"
+   而非崩溃，容易误判。
+2. 设备上**没有生成崩溃报告**（`~/Library/Logs/CrashReporter/MobileDevice/`
+   目录都不存在），`devicectl device sysdiagnose` 也报错拿不到。
+
+可靠办法是**在 tvOS 模拟器里复现**，崩溃报告直接落到本机
+`~/Library/Logs/DiagnosticReports/`。堆栈顶帧一眼看穿：
+
+```
+__UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption_block_invoke
+EXC_BREAKPOINT (SIGTRAP)
+```
+
+模拟器系统日志里的原话：
+
+```
+failure in _UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption
+(UIApplication_RuntimeIssues.m:106):
+Application failed to launch: UIScene life cycle is required for apps built
+with this SDK.
+```
+
+本项目一直用老式 `AppDelegate` + `window` 生命周期，Info.plist 里没有
+`UIApplicationSceneManifest`。在 tvOS 26 SDK 下这只是警告，链接 27 SDK 后
+变成**启动即失败**，且没有 opt-out（唯一的规避是继续用旧 SDK 构建）。
+
+对照实验：VividIPTV 用同一条工具链、同一 team 构建部署，运行完全正常 ——
+它是 SwiftUI，本来就走 scene 生命周期。这条对照把范围从"工具链/系统"
+一次性收敛到"本 App 的生命周期写法"。
+
+### 改法（最小适配）
+
+- `AppDelegate.didFinishLaunchingWithOptions` 不再创建窗口，只保留非 UI 的
+  bootstrap；根控制器的选择逻辑抽成 `makeRootViewController()`。
+- 新增 `SceneDelegate`（写在 `AppDelegate.swift` 内，避免手改 pbxproj 加文件引用），
+  在 `scene(_:willConnectTo:options:)` 里创建窗口并**回填
+  `AppDelegate.shared.window`**，使既有调用点（DLNA 投屏、`topMostViewController`
+  等 4 处）零改动。
+- `applicationDidBecomeActive` 在 scene 生命周期下**不再被调用**，其中的
+  `AVAudioSession` 配置必须迁到 `sceneDidBecomeActive`，否则播放会静默出问题
+  （无声 / 被其他音频打断）。这是最容易漏掉的一处。
+- Info.plist 加 `UIApplicationSceneManifest`，删掉 `UIMainStoryboardFile`
+  （窗口改为程序化创建；`Main.storyboard` 仍在包内，
+  `UIStoryboard(name:"Main")` 的调用点不受影响）。
 
 ## 副作用（已知且接受）
 
