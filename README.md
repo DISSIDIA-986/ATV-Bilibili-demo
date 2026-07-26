@@ -46,7 +46,7 @@
   <tr>
     <td width="50%" align="center">
       <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/atv_bilibili_screenshot_2.png" width="100%" /><br/>
-      <sub><b>主导航 & 直播</b> — 9 个标签页 + 实时弹幕</sub>
+      <sub><b>主导航 & 直播</b> — 10 个标签页 + 实时弹幕</sub>
     </td>
     <td width="50%" align="center">
       <img src="https://dissidia.oss-cn-beijing.aliyuncs.com/test/20260109/atv_bilibili_screenshot_4.png" width="100%" /><br/>
@@ -80,6 +80,17 @@
   <img src="docs/diagrams/system-architecture.png" width="90%" />
 </p>
 <p align="center"><em>系统架构图 — 技术组件与数据流</em></p>
+
+---
+
+## 文档
+
+| 文档 | 内容 |
+|------|------|
+| [TestFlight 部署指南](docs/TESTFLIGHT_GUIDE.md) | 用付费开发者账号打包上传 TestFlight 的完整流程 |
+| [定时部署失败：Xcode 账号丢失 + bundle ID 被旧 team 占用](docs/fixes/deploy-apple-account-and-bundle-id.md) | macOS 大版本升级清空 Xcode 账号、旧 team 占用 bundle ID、tvOS 27 SDK 强制 UIScene 生命周期导致启动即崩 |
+| [关注页解码崩溃 + 播放历史跨端同步](docs/fixes/follows-crash-and-history-sync.md) | 异构动态流解码失败、观看进度上报时机 |
+| [视频信息显示不更新](docs/fixes/video-info-display-bug.md) | 播放页元数据刷新问题 |
 
 ---
 
