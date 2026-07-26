@@ -62,7 +62,7 @@ cd ATV-Bilibili-demo
 
 1. 在 Xcode 中选择 `BilibiliLive` Target → `General`
 2. 设置：
-   - **Version**: `1.0.0`（每次提交 TestFlight 需要递增）
+   - **Version**: `1.0`（项目当前值，见 `BilibiliLive/Supporting Files/Info.plist` 的 `CFBundleShortVersionString`；每次提交 TestFlight 需要递增）
    - **Build**: `1`（同一版本下每次上传需要递增）
 
 ### 第四步：构建 Archive
