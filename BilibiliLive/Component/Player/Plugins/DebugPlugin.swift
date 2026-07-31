@@ -98,7 +98,8 @@ class DebugPlugin: NSObject, CommonPlayerPlugin {
 
         guard let log = player.currentItem?.accessLog() else { return logs }
         guard let item = log.events.last else { return logs }
-        let uri = item.uri ?? ""
+        // 完整 uri 有几百字符，会把浮层其他信息挤掉，只显示 host（完整地址在日志里）
+        let host = URLComponents(string: item.uri ?? "")?.host ?? "-"
         let addr = item.serverAddress ?? ""
         let changes = item.numberOfServerAddressChanges
         let dropped = item.numberOfDroppedVideoFrames
@@ -108,14 +109,14 @@ class DebugPlugin: NSObject, CommonPlayerPlugin {
         let indicatedBitrate = item.indicatedBitrate
         let observedBitrate = item.observedBitrate
         logs += """
-        uri:\(uri), ip:\(addr), change:\(changes)
+        host:\(host), ip:\(addr), change:\(changes)
         drop:\(dropped) stalls:\(stalls)
         bitrate audio:\(bitrateStr(averageAudioBitrate)), video: \(bitrateStr(averageVideoBitrate))
         observedBitrate:\(bitrateStr(observedBitrate))
         indicatedAverageBitrate:\(bitrateStr(indicatedBitrate))
         """
 
-        if let additionDebugInfo = additionDebugInfo?() {
+        if let additionDebugInfo = additionDebugInfo?(), !additionDebugInfo.isEmpty {
             logs = additionDebugInfo + "\n" + logs
         }
         if customInfo.isEmpty == false {

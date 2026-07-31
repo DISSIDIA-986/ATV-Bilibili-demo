@@ -136,6 +136,9 @@ class VideoPlayerViewModel {
         let danmu = DanmuViewPlugin(provider: danmuProvider)
         let upnp = BUpnpPlugin(duration: data.detail?.View.duration)
         let debug = DebugPlugin()
+        debug.additionDebugInfo = { [weak playplugin] in
+            playplugin?.networkDebugInfo ?? ""
+        }
         let playSpeed = SpeedChangerPlugin()
         playSpeed.$currentPlaySpeed.sink { [weak danmu] speed in
             danmu?.danMuView.playingSpeed = speed.value
@@ -158,7 +161,8 @@ class VideoPlayerViewModel {
             }
         }
 
-        var plugins: [CommonPlayerPlugin] = [playplugin, danmu, playSpeed, upnp, debug, playlist, qualitySelector]
+        // playSpeed 先创建 identifier=setting 的「播放设置」菜单，后续插件（CDN 测速、Debug 等）才能挂进去
+        var plugins: [CommonPlayerPlugin] = [playSpeed, playplugin, danmu, upnp, debug, playlist, qualitySelector]
 
         if let clips = data.clips {
             let clip = BVideoClipsPlugin(clipInfos: clips)

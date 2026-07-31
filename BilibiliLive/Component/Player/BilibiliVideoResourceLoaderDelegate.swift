@@ -47,6 +47,15 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
     private var aid = 0
     private(set) var httpPort = 0
     private(set) var isHDR = false
+    /// 首选视频流的全部 CDN 候选，按 host 去重，供 CDNDiagnostics 实测
+    private(set) var cdnCandidates = [String]()
+    /// 首选视频流的声明带宽（bps），access log 的 indicatedBitrate 尚未就绪时作健康检测兜底
+    private(set) var primaryVideoBandwidth = 0
+    /// 最近一次生成媒体播放列表时实际选用的分片 host
+    private(set) var currentSegmentHost: String?
+    /// 播放中途检测到当前 host 吞吐撑不住时，外部（BVideoPlayPlugin）指定的优先 host，
+    /// sidx 探测会把它排到候选队首，覆盖默认 URL 顺序
+    private var preferredHost: String?
     deinit {
         httpServer.stop()
     }
@@ -72,6 +81,17 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
 
 
         """
+    }
+
+    /// DASH manifest 的 bandwidth 是平均码率，而 HLS 的 BANDWIDTH 要求的是分片峰值码率。
+    /// 直接照搬会让 CoreMedia 每拉一个分片都判定 "Segment exceeds specified bandwidth for
+    /// variant" (-12318) 并自行上调内部估计，ABR 从起播起就在用错误的依据决策。
+    ///
+    /// 实测 B 站分片的峰值约为平均的 1.5 倍：785kbps 的流被上调到 1.21Mbps，
+    /// 3.17Mbps 的流被上调到 4.81Mbps。真实平均值仍通过 AVERAGE-BANDWIDTH 如实声明，
+    /// 稳态选流靠它，所以这里的峰值宁可略高。
+    private static func peakBandwidth(forAverage average: Int) -> Int {
+        return Int(Double(average) * 1.5)
     }
 
     private func addVideoPlayBackInfo(info: VideoPlayURLInfo.DashInfo.DashMediaInfo, url: String, duration: Int) {
@@ -118,7 +138,7 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
             supplementCodesc = ",SUPPLEMENTAL-CODECS=\"\(supplementCodesc)\""
         }
         let content = """
-        #EXT-X-STREAM-INF:AUDIO="audio"\(subtitlePlaceHolder),CODECS="\(codecs)"\(supplementCodesc),RESOLUTION=\(info.width ?? 0)x\(info.height ?? 0),FRAME-RATE=\(framerate),BANDWIDTH=\(info.bandwidth),VIDEO-RANGE=\(videoRange)
+        #EXT-X-STREAM-INF:AUDIO="audio"\(subtitlePlaceHolder),CODECS="\(codecs)"\(supplementCodesc),RESOLUTION=\(info.width ?? 0)x\(info.height ?? 0),FRAME-RATE=\(framerate),BANDWIDTH=\(Self.peakBandwidth(forAverage: info.bandwidth)),AVERAGE-BANDWIDTH=\(info.bandwidth),VIDEO-RANGE=\(videoRange)
         \(URLs.customDashPrefix)\(videoInfo.count)?codec=\(info.codecs)&rate=\(info.frame_rate ?? framerate)&width=\(info.width ?? 0)&host=\(URL(string: url)?.host ?? "none")&range=\(info.id)
 
         """
@@ -126,8 +146,30 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         videoInfo.append(PlaybackInfo(info: info, url: url, duration: duration))
     }
 
+    private func collectCDNCandidates(from video: VideoPlayURLInfo.DashInfo.DashMediaInfo?) {
+        guard let video else {
+            cdnCandidates = []
+            primaryVideoBandwidth = 0
+            return
+        }
+        primaryVideoBandwidth = video.bandwidth
+        var seenHosts = Set<String>()
+        cdnCandidates = video.playableURLs.filter { url in
+            guard let host = URLComponents(string: url)?.host else { return false }
+            return seenHosts.insert(host).inserted
+        }
+
+        let detail = cdnCandidates
+            .map { url in
+                let host = URLComponents(string: url)?.host ?? "?"
+                return BVideoUrlUtils.isPCDN(url) ? "  PCDN \(host)" : "  \(host)"
+            }
+            .joined(separator: "\n")
+        Logger.info("cdn candidates for qn \(video.id) (\(video.bandwidth / 1000)kbps):\n\(detail)")
+    }
+
     private func getVideoPlayList(info: PlaybackInfo) async -> String {
-        let sidxResult = await segmentInfoCache.sidx(from: info.info)
+        let sidxResult = await segmentInfoCache.sidx(from: info.info, preferredHost: preferredHost)
         let inits = info.info.segment_base.initialization.components(separatedBy: "-")
         guard let moovIdxStr = inits.last,
               let moovIdx = Int(moovIdxStr),
@@ -136,6 +178,7 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
               var offset = Int(offsetStr),
               let sidxResult = sidxResult
         else {
+            currentSegmentHost = URLComponents(string: info.url)?.host
             return """
             #EXTM3U
             #EXT-X-VERSION:7
@@ -153,6 +196,7 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         // 首选 CDN 挂掉时 segment 会整体切到探测成功的备用 URL
         let segment = sidxResult.sidx
         let segmentURL = sidxResult.url
+        currentSegmentHost = URLComponents(string: segmentURL)?.host
         var playList = """
         #EXTM3U
         #EXT-X-VERSION:7
@@ -267,9 +311,10 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         playlists.append(playList)
     }
 
-    func setBilibili(info: VideoPlayURLInfo, subtitles: [SubtitleData], aid: Int, maxQuality: Int? = nil, streamIndex: Int? = nil) {
+    func setBilibili(info: VideoPlayURLInfo, subtitles: [SubtitleData], aid: Int, maxQuality: Int? = nil, streamIndex: Int? = nil, preferredHost: String? = nil) {
         playInfo = info
         self.aid = aid
+        self.preferredHost = preferredHost
         reset()
         hasSubtitle = subtitles.count > 0
         var videos = info.dash.video
@@ -294,6 +339,7 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
             videos = [info.dash.video[streamIndex]]
         } else if let maxQuality = maxQuality {
             // 用户选择了画质，保留该画质的最高码率流
+            // （手动切画质时一般会带 streamIndex，走上面精确选流；这里是无 streamIndex 的兜底）
             let matchingStreams = videos.filter { $0.id == maxQuality }
             if let highestBandwidthStream = matchingStreams.max(by: { $0.bandwidth < $1.bandwidth }) {
                 videos = [highestBandwidthStream]
@@ -326,6 +372,8 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         // 按 bandwidth 降序排序（码率最高的优先，让 AVPlayer 优先选择）
         // 这样可以确保在同一画质等级下，AVPlayer 会选择码率最高的流
         videos.sort { $0.bandwidth > $1.bandwidth }
+
+        collectCDNCandidates(from: videos.first)
 
         // 添加所有 CDN 节点的 URL，让 AVPlayer 自动选择最快的
         // 这样可以解决单个 CDN 节点速度慢的问题
@@ -372,7 +420,7 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         // i-frame
         if let video = videos.last, let url = video.playableURLs.first {
             let media = """
-            #EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=\(video.bandwidth),RESOLUTION=\(video.width!)x\(video.height!),URI="\(URLs.customDashPrefix)\(videoInfo.count)"
+            #EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=\(Self.peakBandwidth(forAverage: video.bandwidth)),RESOLUTION=\(video.width!)x\(video.height!),URI="\(URLs.customDashPrefix)\(videoInfo.count)"
 
             """
             masterPlaylist.append(media)
@@ -382,11 +430,16 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         masterPlaylist.append("\n#EXT-X-ENDLIST\n")
 
         // 预取 AVPlayer 大概率首选流（排序后第一条视频 + 默认音频）的 sidx，
-        // 与 master playlist 加载并行，缩短起播链路；actor 内有 in-progress 去重
-        let prefetchTargets = [videos.first, info.dash.audio?.first].compactMap { $0 }
-        for target in prefetchTargets {
+        // 与 master playlist 加载并行，缩短起播链路；actor 内有 in-progress 去重。
+        // preferredHost 只对视频流生效（音频码率低，host 选择影响不大）
+        if let video = videos.first {
+            Task.detached { [segmentInfoCache, preferredHost] in
+                _ = await segmentInfoCache.sidx(from: video, preferredHost: preferredHost)
+            }
+        }
+        if let audio = info.dash.audio?.first {
             Task.detached { [segmentInfoCache] in
-                _ = await segmentInfoCache.sidx(from: target)
+                _ = await segmentInfoCache.sidx(from: audio)
             }
         }
 
@@ -491,7 +544,7 @@ enum BVideoUrlUtils {
         if let backup {
             urls.append(contentsOf: backup)
         }
-        // 按 tier 优选，同 tier 保持 API 返回顺序（enumerated + offset 实现稳定排序）
+        // 只把 PCDN 垫底；其余保持 API 返回顺序，具体快慢交给动态测速
         return urls.enumerated()
             .sorted { (tier($0.element), $0.offset) < (tier($1.element), $1.offset) }
             .map(\.element)
@@ -511,24 +564,9 @@ enum BVideoUrlUtils {
         return host.hasSuffix("szbdyd.com") || host.hasSuffix("mcdn.bilivideo.cn")
     }
 
-    // CDN 质量分级：upos 主力节点最稳，akam 镜像走海外线路国内慢，PCDN 只作最后备援
-    private static func tier(_ urlString: String) -> Int {
-        if isPCDN(urlString) {
-            return 100
-        }
-        guard let host = URLComponents(string: urlString)?.host?.lowercased() else {
-            return 50
-        }
-        if host.hasPrefix("upos-"), host.hasSuffix(".bilivideo.com") {
-            return host.contains("akam") ? 30 : 0
-        }
-        if host.hasSuffix(".akamaized.net") {
-            return 40
-        }
-        if host.hasSuffix(".bilivideo.com") {
-            return 10
-        }
-        return 20
+    /// 0 = 普通 CDN，1 = PCDN（仅作安全策略垫底，不再做 upos/akam 等静态速度假设）
+    static func tier(_ urlString: String) -> Int {
+        isPCDN(urlString) ? 1 : 0
     }
 
     static func convertVTTFormate(_ time: CGFloat) -> String {
@@ -583,7 +621,7 @@ actor SidxDownloader {
 
     private var cache: [VideoPlayURLInfo.DashInfo.DashMediaInfo: CacheEntry] = [:]
 
-    func sidx(from info: VideoPlayURLInfo.DashInfo.DashMediaInfo) async -> SidxResult? {
+    func sidx(from info: VideoPlayURLInfo.DashInfo.DashMediaInfo, preferredHost: String? = nil) async -> SidxResult? {
         if let cached = cache[info] {
             switch cached {
             case let .ready(sidx):
@@ -596,7 +634,7 @@ actor SidxDownloader {
         }
 
         let task = Task {
-            await downloadSidx(info: info)
+            await downloadSidx(info: info, preferredHost: preferredHost)
         }
 
         cache[info] = .inProgress(task)
@@ -607,9 +645,23 @@ actor SidxDownloader {
         return sidx
     }
 
-    private func downloadSidx(info: VideoPlayURLInfo.DashInfo.DashMediaInfo) async -> SidxResult? {
+    private func elapsedMs(since date: Date) -> Int {
+        Int(Date().timeIntervalSince(date) * 1000)
+    }
+
+    private func downloadSidx(info: VideoPlayURLInfo.DashInfo.DashMediaInfo, preferredHost: String? = nil) async -> SidxResult? {
         let range = info.segment_base.index_range
-        for url in info.playableURLs.prefix(3) {
+        var urls = info.playableURLs
+        // sidx 只有几 KB，探测到的只是延迟不是吞吐；运行时如果发现当前 host 扛不住实际码率，
+        // 由外部指定 preferredHost 时强制优先试这个 host
+        if let preferredHost,
+           let idx = urls.firstIndex(where: { URLComponents(string: $0)?.host == preferredHost })
+        {
+            urls.insert(urls.remove(at: idx), at: 0)
+        }
+        for url in urls.prefix(3) {
+            let host = URLComponents(string: url)?.host ?? url
+            let start = Date()
             if let res = try? await Self.session.request(url,
                                                          headers: ["Range": "bytes=\(range)",
                                                                    "Referer": "https://www.bilibili.com/"])
@@ -617,9 +669,10 @@ actor SidxDownloader {
                 let segment = SidxParseUtil.processIndexData(data: res),
                 !segment.segments.isEmpty
             {
+                Logger.info("sidx ok in \(elapsedMs(since: start))ms from \(host)")
                 return SidxResult(sidx: segment, url: url)
             }
-            Logger.warn("sidx download failed on \(url), try next url")
+            Logger.warn("sidx download failed in \(elapsedMs(since: start))ms on \(host), try next url")
         }
         return nil
     }

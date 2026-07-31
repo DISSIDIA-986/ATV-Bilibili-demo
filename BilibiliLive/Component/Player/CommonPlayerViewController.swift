@@ -17,6 +17,8 @@ class CommonPlayerViewController: UIViewController {
     private var playToEndObserver: Any?
     private var isEnd = false
     private var isRestoringFromPip = false
+    /// 新 AVPlayerItem ready 后是否自动 play。换 CDN host 等场景可临时关掉，由调用方按用户暂停状态决定是否续播。
+    var autoPlayWhenReady = true
 
     deinit {
         cleanUpPlayerOnExit(force: true)
@@ -164,7 +166,9 @@ extension CommonPlayerViewController {
             case .readyToPlay:
                 isEnd = false
                 activePlugins.forEach { $0.playerWillStart(player: player) }
-                player.play()
+                if autoPlayWhenReady {
+                    player.play()
+                }
             case .failed:
                 activePlugins.forEach { $0.playerDidFail(player: player) }
             default:
