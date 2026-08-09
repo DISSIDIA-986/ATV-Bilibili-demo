@@ -696,9 +696,6 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
                 self?.applyReturnedPlaybackSelection(info)
             }
         }
-        player.onItemWatched = { [weak self] playInfo, watchedSeconds in
-            self?.handleItemWatched(playInfo: playInfo, watchedSeconds: watchedSeconds)
-        }
         present(player, animated: true)
     }
 
@@ -710,13 +707,6 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
             return nil
         }
         return previewController.currentPlaybackTimeInSeconds()
-    }
-
-    private func handleItemWatched(playInfo: PlayInfo, watchedSeconds: Int) {
-        let duration = playInfo.duration ?? 0
-        let isPositive = watchedSeconds >= 8 || (duration > 0 && Double(watchedSeconds) >= Double(duration) * 0.25)
-        guard isPositive else { return }
-        dataSource.didRecordPositiveWatchSignal(playInfo: playInfo, watchedSeconds: watchedSeconds)
     }
 }
 

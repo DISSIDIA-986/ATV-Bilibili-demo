@@ -66,8 +66,8 @@ class VideoPlayerViewModel {
         playInfo
     }
 
-    func load() async {
-        await startLoad(for: playInfo).value
+    func load() {
+        startLoad(for: playInfo)
     }
 
     func cancelLoading() {
@@ -76,8 +76,7 @@ class VideoPlayerViewModel {
         loadGeneration += 1
     }
 
-    @discardableResult
-    private func startLoad(for requestedPlayInfo: PlayInfo) -> Task<Void, Never> {
+    private func startLoad(for requestedPlayInfo: PlayInfo) {
         loadTask?.cancel()
         loadGeneration += 1
         let generation = loadGeneration
@@ -86,7 +85,6 @@ class VideoPlayerViewModel {
             await performLoad(for: requestedPlayInfo, generation: generation)
         }
         loadTask = task
-        return task
     }
 
     private func performLoad(for requestedPlayInfo: PlayInfo, generation: Int) async {
@@ -241,8 +239,8 @@ class VideoPlayerViewModel {
         return nil
     }
 
-    func retryCurrent() async {
-        await load()
+    func retryCurrent() {
+        load()
     }
 
     func playNextFromSequence() async -> Bool {
@@ -318,9 +316,6 @@ class VideoPlayerViewModel {
         playlist.onPlayEnd = { [weak self] in
             guard self?.playMode == .regular else { return }
             self?.onExit?()
-        }
-        playlist.onPlayPreviousWithInfo = { [weak self] info in
-            self?.updatePlayInfo(info)
         }
         playlist.onPlayNextWithInfo = {
             [weak self] info in
