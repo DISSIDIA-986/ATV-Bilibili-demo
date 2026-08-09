@@ -16,6 +16,7 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
     private var focusedIndex = 0
     private var isLoading = false
     private var previewTask: Task<Void, Never>?
+    private var playbackWarmupTask: Task<Void, Never>?
     private var dataLoadTask: Task<Void, Never>?
     private var loadMoreTask: Task<[FeedFlowItem], Error>?
     private var loadGeneration = 0
@@ -163,6 +164,7 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
     deinit {
         NotificationCenter.default.removeObserver(self)
         previewTask?.cancel()
+        playbackWarmupTask?.cancel()
         dataLoadTask?.cancel()
         loadMoreTask?.cancel()
     }
@@ -466,6 +468,7 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
 
     private func schedulePreview(for item: FeedFlowItem) {
         previewTask?.cancel()
+        playbackWarmupTask?.cancel()
         Task { [mediaWarmupManager] in
             await mediaWarmupManager.cancelAll()
         }
@@ -514,7 +517,8 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
         controller.onPlaybackStarted = { [weak self, weak controller] in
             guard let self, let controller, self.previewController === controller else { return }
             self.revealPreviewPlaybackStarted(controller: controller)
-            Task { [weak self] in
+            self.playbackWarmupTask?.cancel()
+            self.playbackWarmupTask = Task { [weak self] in
                 await self?.warmupPlaybackMedia(for: item)
             }
         }
@@ -546,6 +550,8 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
         removePreviewController()
         restorePreviewPlaceholder(animated: false)
         if cancelWarmups {
+            playbackWarmupTask?.cancel()
+            playbackWarmupTask = nil
             Task { [mediaWarmupManager] in
                 await mediaWarmupManager.cancelAll()
             }
@@ -593,7 +599,9 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
         let warmupInfos = prioritizedPlaybackWarmupInfos(for: item)
         await playContextCache.trim(keeping: warmupInfos)
         for info in warmupInfos {
+            guard !Task.isCancelled else { return }
             await playContextCache.preload(playInfo: info, mode: .regular)
+            guard !Task.isCancelled else { return }
             await mediaWarmupManager.preload(playInfo: info)
         }
     }

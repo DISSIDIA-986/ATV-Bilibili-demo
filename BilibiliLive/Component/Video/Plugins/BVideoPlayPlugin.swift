@@ -386,6 +386,10 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled,
+                      self.loadGeneration == generation,
+                      self.playerVC != nil
+                else { return }
                 Logger.warn("[player] Failed to prepare media: \(error)")
                 self.onLoadFailure?(error.localizedDescription)
             }

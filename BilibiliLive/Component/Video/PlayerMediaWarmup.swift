@@ -67,6 +67,7 @@ actor PlayerMediaWarmupManager {
     private var prepared = [String: PreparedPlayerMedia]()
     private var inFlight = [String: InFlightEntry]()
     private var accessOrder = [String]()
+    private var cancellationGeneration = 0
 
     init(playContextCache: PlayContextCache) {
         self.playContextCache = playContextCache
@@ -77,7 +78,10 @@ actor PlayerMediaWarmupManager {
     }
 
     func preparedMedia(for playInfo: PlayInfo) async throws -> PreparedPlayerMedia {
+        let generation = cancellationGeneration
         let resolvedPlayInfo = try await PlayInfoResolver.resolve(playInfo)
+        try Task.checkCancellation()
+        guard cancellationGeneration == generation else { throw CancellationError() }
         let key = resolvedPlayInfo.sequenceKey
         if let cached = prepared[key] {
             touch(key)
@@ -128,6 +132,7 @@ actor PlayerMediaWarmupManager {
     }
 
     func cancelAll() {
+        cancellationGeneration += 1
         inFlight.values.forEach { $0.task.cancel() }
         inFlight.removeAll()
         prepared.removeAll()
