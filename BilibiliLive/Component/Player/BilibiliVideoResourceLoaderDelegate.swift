@@ -37,7 +37,11 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
     private var playlists = [String]()
     private var subtitles = [String: String]()
     private var videoInfo = [PlaybackInfo]()
-    private var segmentInfoCache = SidxDownloader()
+    // Keep SIDX selection scoped to this playback session. A shared cache can
+    // leak the CDN chosen for one player into another concurrent player (for
+    // example, picture-in-picture) because preferredHost is not part of the
+    // media-info cache key.
+    private let segmentInfoCache = SidxDownloader(maxEntries: 16)
     private var hasAudioInMasterListAdded = false
     private var audioRenditionIndex = 0
     private(set) var playInfo: VideoPlayURLInfo?
@@ -57,6 +61,7 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
     /// sidx 探测会把它排到候选队首，覆盖默认 URL 顺序
     private var preferredHost: String?
     deinit {
+        cancelPendingIndexLoads()
         httpServer.stop()
     }
 
@@ -429,21 +434,19 @@ class BilibiliVideoResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
 
         masterPlaylist.append("\n#EXT-X-ENDLIST\n")
 
-        // 预取 AVPlayer 大概率首选流（排序后第一条视频 + 默认音频）的 sidx，
-        // 与 master playlist 加载并行，缩短起播链路；actor 内有 in-progress 去重。
-        // preferredHost 只对视频流生效（音频码率低，host 选择影响不大）
-        if let video = videos.first {
-            Task.detached { [segmentInfoCache, preferredHost] in
-                _ = await segmentInfoCache.sidx(from: video, preferredHost: preferredHost)
-            }
-        }
-        if let audio = info.dash.audio?.first {
-            Task.detached { [segmentInfoCache] in
-                _ = await segmentInfoCache.sidx(from: audio)
-            }
-        }
-
         Logger.debug("masterPlaylist: \(masterPlaylist)")
+    }
+
+    func prewarmPrimaryVideoIndex() async {
+        guard let firstVideo = videoInfo.first else { return }
+        _ = await segmentInfoCache.sidx(from: firstVideo.info, preferredHost: preferredHost)
+    }
+
+    func cancelPendingIndexLoads() {
+        let cache = segmentInfoCache
+        Task {
+            await cache.cancelAll()
+        }
     }
 
     private func reportError(_ loadingRequest: AVAssetResourceLoadingRequest, withErrorCode error: Int) {
@@ -606,8 +609,8 @@ actor SidxDownloader {
     }
 
     private enum CacheEntry {
-        case inProgress(Task<SidxResult?, Never>)
-        case ready(SidxResult?)
+        case inProgress(token: UUID, task: Task<SidxResult?, Never>)
+        case ready(SidxResult)
     }
 
     // sidx 只有几 KB，用短超时的独立 Session，避免默认 60s 超时把起播卡死
@@ -619,34 +622,80 @@ actor SidxDownloader {
         return Session(configuration: config)
     }()
 
+    private let maxEntries: Int
     private var cache: [VideoPlayURLInfo.DashInfo.DashMediaInfo: CacheEntry] = [:]
+    private var accessOrder: [VideoPlayURLInfo.DashInfo.DashMediaInfo] = []
+
+    init(maxEntries: Int = 16) {
+        self.maxEntries = maxEntries
+    }
 
     func sidx(from info: VideoPlayURLInfo.DashInfo.DashMediaInfo, preferredHost: String? = nil) async -> SidxResult? {
         if let cached = cache[info] {
+            touch(info)
             switch cached {
             case let .ready(sidx):
                 Logger.debug("sidx cache hit \(info.id)")
                 return sidx
-            case let .inProgress(sidx):
+            case let .inProgress(_, task):
                 Logger.debug("sidx cache wait \(info.id)")
-                return await sidx.value
+                return await task.value
             }
         }
 
-        let task = Task {
-            await downloadSidx(info: info, preferredHost: preferredHost)
+        let token = UUID()
+        let task = Task<SidxResult?, Never> {
+            guard !Task.isCancelled else { return nil }
+            return await downloadSidx(info: info, preferredHost: preferredHost)
         }
 
-        cache[info] = .inProgress(task)
+        cache[info] = .inProgress(token: token, task: task)
+        touch(info)
 
         let sidx = await task.value
-        cache[info] = .ready(sidx)
+        guard case let .inProgress(currentToken, _) = cache[info],
+              currentToken == token
+        else {
+            return nil
+        }
+        if let sidx {
+            cache[info] = .ready(sidx)
+        } else {
+            cache[info] = nil
+            accessOrder.removeAll { $0 == info }
+        }
+        trimToCapacity()
         Logger.debug("get sidx \(info.id)")
         return sidx
     }
 
+    func cancelAll() {
+        for entry in cache.values {
+            if case let .inProgress(_, task) = entry {
+                task.cancel()
+            }
+        }
+        cache.removeAll()
+        accessOrder.removeAll()
+    }
+
     private func elapsedMs(since date: Date) -> Int {
         Int(Date().timeIntervalSince(date) * 1000)
+    }
+
+    private func touch(_ info: VideoPlayURLInfo.DashInfo.DashMediaInfo) {
+        accessOrder.removeAll { $0 == info }
+        accessOrder.append(info)
+    }
+
+    private func trimToCapacity() {
+        while cache.count > maxEntries, let oldest = accessOrder.first {
+            accessOrder.removeFirst()
+            if case let .inProgress(_, task) = cache[oldest] {
+                task.cancel()
+            }
+            cache[oldest] = nil
+        }
     }
 
     private func downloadSidx(info: VideoPlayURLInfo.DashInfo.DashMediaInfo, preferredHost: String? = nil) async -> SidxResult? {
@@ -660,12 +709,14 @@ actor SidxDownloader {
             urls.insert(urls.remove(at: idx), at: 0)
         }
         for url in urls.prefix(3) {
+            guard !Task.isCancelled else { return nil }
             let host = URLComponents(string: url)?.host ?? url
             let start = Date()
             if let res = try? await Self.session.request(url,
                                                          headers: ["Range": "bytes=\(range)",
                                                                    "Referer": "https://www.bilibili.com/"])
                 .serializingData().result.get(),
+                !Task.isCancelled,
                 let segment = SidxParseUtil.processIndexData(data: res),
                 !segment.segments.isEmpty
             {
