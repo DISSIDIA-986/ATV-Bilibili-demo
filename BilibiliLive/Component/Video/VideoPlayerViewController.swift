@@ -185,6 +185,7 @@ class VideoPlayerViewController: CommonPlayerViewController {
     private let viewModel: VideoPlayerViewModel
     private var cancelable = Set<AnyCancellable>()
     private var loadTask: Task<Void, Never>?
+    private var neighborPreloadTask: Task<Void, Never>?
     private var currentRetryKey: String
     private var hasRetriedCurrentItem = false
     private var isStopping = false
@@ -239,9 +240,10 @@ class VideoPlayerViewController: CommonPlayerViewController {
             case let .failure(err):
                 self?.handleLoadFailure(message: err)
             case let .success(plugins):
+                self?.neighborPreloadTask?.cancel()
                 self?.removeAllPlugins()
                 plugins.forEach { self?.addPlugin(plugin: $0) }
-                Task { [weak self] in
+                self?.neighborPreloadTask = Task { [weak self] in
                     await self?.viewModel.preloadNeighborsIfNeeded()
                 }
             }
@@ -327,6 +329,8 @@ class VideoPlayerViewController: CommonPlayerViewController {
     }
 
     private func handlePlayInfoChanged(_ info: PlayInfo) {
+        neighborPreloadTask?.cancel()
+        neighborPreloadTask = nil
         if playMode == .feedFlow,
            let watchSignal = consumeCurrentPlaybackWatchSignal()
         {
@@ -354,6 +358,8 @@ class VideoPlayerViewController: CommonPlayerViewController {
         activeWatchSignalPlayInfo = nil
         loadTask?.cancel()
         loadTask = nil
+        neighborPreloadTask?.cancel()
+        neighborPreloadTask = nil
         viewModel.cancelLoading()
         cancelable.removeAll()
         Task { [mediaWarmupManager] in

@@ -274,10 +274,13 @@ class VideoPlayerViewModel {
                         sequenceProvider.peekNext(),
                         sequenceProvider.peekPrevious()].compactMap { $0 }.uniqued()
         for info in priority {
+            guard !Task.isCancelled else { return }
             await playContextCache.preload(playInfo: info, mode: .regular)
         }
+        guard !Task.isCancelled else { return }
         await playContextCache.trim(keeping: priority)
         for info in priority {
+            guard !Task.isCancelled else { return }
             await mediaWarmupManager?.preload(playInfo: info)
         }
     }
