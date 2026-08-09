@@ -9,6 +9,8 @@ import AVKit
 import UIKit
 
 class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
+    var onLoadFailure: ((String) -> Void)?
+
     private weak var playerVC: AVPlayerViewController?
     private var playerDelegate: BilibiliVideoResourceLoaderDelegate?
     private let playInfo: PlayInfo
@@ -372,7 +374,7 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
                            isQualitySwitch: Bool = false)
     {
         let generation = beginLoadGeneration()
-        loadTask = Task { [weak self] in
+        loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 try await self.playmedia(urlInfo: urlInfo,
@@ -385,6 +387,7 @@ class BVideoPlayPlugin: NSObject, CommonPlayerPlugin {
                 return
             } catch {
                 Logger.warn("[player] Failed to prepare media: \(error)")
+                self.onLoadFailure?(error.localizedDescription)
             }
         }
     }

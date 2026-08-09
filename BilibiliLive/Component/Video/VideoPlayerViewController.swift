@@ -228,18 +228,16 @@ class VideoPlayerViewController: CommonPlayerViewController {
         viewModel.onShowDetail = { [weak self] info in
             self?.showDetail(for: info)
         }
-        viewModel.onPluginReady.receive(on: DispatchQueue.main).sink { [weak self] completion in
-            switch completion {
+        viewModel.loadResult.receive(on: DispatchQueue.main).sink { [weak self] result in
+            switch result {
             case let .failure(err):
                 self?.handleLoadFailure(message: err)
-            default:
-                break
-            }
-        } receiveValue: { [weak self] plugins in
-            self?.removeAllPlugins()
-            plugins.forEach { self?.addPlugin(plugin: $0) }
-            Task { [weak self] in
-                await self?.viewModel.preloadNeighborsIfNeeded()
+            case let .success(plugins):
+                self?.removeAllPlugins()
+                plugins.forEach { self?.addPlugin(plugin: $0) }
+                Task { [weak self] in
+                    await self?.viewModel.preloadNeighborsIfNeeded()
+                }
             }
         }.store(in: &cancelable)
 
