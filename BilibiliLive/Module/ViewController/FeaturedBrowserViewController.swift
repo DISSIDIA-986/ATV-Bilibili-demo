@@ -19,7 +19,6 @@ private extension ApiRequest.FeedResp.Items {
                             ownerName: ownerName,
                             coverURL: pic,
                             avatarURL: avatar,
-                            duration: durationValue,
                             durationText: cover_right_text ?? TimeInterval(durationValue).timeString(),
                             viewCountText: cover_left_text_1 ?? "",
                             danmakuCountText: cover_left_text_2 ?? "",
