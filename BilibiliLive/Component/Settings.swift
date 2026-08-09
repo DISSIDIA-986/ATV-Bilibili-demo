@@ -114,6 +114,9 @@ enum Settings {
     @UserDefault("Settings.featuredContentSafetyFilterEnabled", defaultValue: true)
     static var featuredContentSafetyFilterEnabled: Bool
 
+    @UserDefault("Settings.followsFeedFlowEnabled", defaultValue: false)
+    static var followsFeedFlowEnabled: Bool
+
     @UserDefaultCodable("Settings.SponsorBlockType", defaultValue: SponsorBlockType.none)
     static var enableSponsorBlock: SponsorBlockType
 
