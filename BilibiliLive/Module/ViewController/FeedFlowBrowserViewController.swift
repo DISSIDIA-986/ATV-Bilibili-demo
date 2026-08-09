@@ -592,7 +592,6 @@ class FeedFlowBrowserViewController: UIViewController, BLTabBarContentVCProtocol
     private func warmupPlaybackMedia(for item: FeedFlowItem) async {
         let warmupInfos = prioritizedPlaybackWarmupInfos(for: item)
         await playContextCache.trim(keeping: warmupInfos)
-        await mediaWarmupManager.retain(playInfos: warmupInfos)
         for info in warmupInfos {
             await playContextCache.preload(playInfo: info, mode: .regular)
             await mediaWarmupManager.preload(playInfo: info)

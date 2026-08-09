@@ -35,6 +35,12 @@ struct PlayInfo: Hashable {
         "\(aid)-\(cid ?? 0)-\(epid ?? 0)-\(seasonId ?? 0)"
     }
 
+    var contentIdentity: String {
+        if let epid, epid > 0 { return "epid-\(epid)" }
+        if let seasonId, seasonId > 0 { return "season-\(seasonId)" }
+        return "aid-\(aid)"
+    }
+
     var contextKey: PlayContextKey {
         PlayContextKey(aid: aid,
                        cid: cid ?? 0,
@@ -348,6 +354,7 @@ class VideoPlayerViewController: CommonPlayerViewController {
         activeWatchSignalPlayInfo = nil
         loadTask?.cancel()
         loadTask = nil
+        viewModel.cancelLoading()
         cancelable.removeAll()
         Task { [mediaWarmupManager] in
             await mediaWarmupManager?.cancelAll()

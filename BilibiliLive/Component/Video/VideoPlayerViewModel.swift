@@ -40,7 +40,7 @@ class VideoPlayerViewModel {
     private let mediaWarmupManager: PlayerMediaWarmupManager?
     private let previewMuted: Bool
     private let startTimeOverride: Int?
-    private let startTimeOverrideSequenceKey: String
+    private let startTimeOverrideContentIdentity: String
     private var videoDetail: VideoDetail?
     private var cancellable = Set<AnyCancellable>()
     private var loadTask: Task<Void, Never>?
@@ -59,7 +59,7 @@ class VideoPlayerViewModel {
         self.mediaWarmupManager = mediaWarmupManager
         self.previewMuted = previewMuted
         self.startTimeOverride = startTimeOverride
-        startTimeOverrideSequenceKey = playInfo.sequenceKey
+        startTimeOverrideContentIdentity = playInfo.contentIdentity
     }
 
     var currentPlayInfo: PlayInfo {
@@ -68,6 +68,12 @@ class VideoPlayerViewModel {
 
     func load() async {
         await startLoad(for: playInfo).value
+    }
+
+    func cancelLoading() {
+        loadTask?.cancel()
+        loadTask = nil
+        loadGeneration += 1
     }
 
     @discardableResult
@@ -221,7 +227,7 @@ class VideoPlayerViewModel {
                                         playInfo: PlayInfo) -> Int?
     {
         if let startTimeOverride,
-           startTimeOverrideSequenceKey == playInfo.sequenceKey,
+           startTimeOverrideContentIdentity == playInfo.contentIdentity,
            duration - startTimeOverride > 5
         {
             return startTimeOverride
@@ -271,7 +277,6 @@ class VideoPlayerViewModel {
             await playContextCache.preload(playInfo: info, mode: .regular)
         }
         await playContextCache.trim(keeping: priority)
-        await mediaWarmupManager?.retain(playInfos: priority)
         for info in priority {
             await mediaWarmupManager?.preload(playInfo: info)
         }
