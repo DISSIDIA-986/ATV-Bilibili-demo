@@ -414,7 +414,7 @@ class VideoPlayerViewController: CommonPlayerViewController {
               let nextView = context.nextFocusedView
         else { return }
 
-        refreshAVInfoPanelHookIfNeeded(for: nextView)
+        installAVInfoPanelHookIfNeeded(for: nextView)
         #if DEBUG
             Logger.debug("[FocusDiag] 焦点落在了类: \(type(of: nextView))")
             let dumpResult = dumpViewHierarchy(nextView, depth: 0)
@@ -440,9 +440,12 @@ class VideoPlayerViewController: CommonPlayerViewController {
         }
     #endif
 
-    private func refreshAVInfoPanelHookIfNeeded(for view: UIView) {
+    private func installAVInfoPanelHookIfNeeded(for view: UIView) {
         guard containsAVInfoPanelHierarchy(from: view) else { return }
-        AVInfoPanelCollectionViewThumbnailCellHook.start()
+        guard AVInfoPanelCollectionViewThumbnailCellHook.start(),
+              let title = extractInfoActionTitle(from: view)
+        else { return }
+        handleFocusedInfoAction(title: title)
     }
 
     private func containsAVInfoPanelHierarchy(from view: UIView) -> Bool {
@@ -458,6 +461,48 @@ class VideoPlayerViewController: CommonPlayerViewController {
         }
 
         return false
+    }
+
+    private func extractInfoActionTitle(from view: UIView) -> String? {
+        var currentView: UIView? = view
+        var remainingDepth = 8
+
+        while let candidate = currentView, remainingDepth > 0 {
+            if let title = matchingInfoActionTitle(in: candidate, maxDepth: 0) {
+                return title
+            }
+            let isActionContainer = candidate is UICollectionViewCell ||
+                NSStringFromClass(type(of: candidate)).contains("AVInfoPanel")
+            if isActionContainer,
+               let title = matchingInfoActionTitle(in: candidate, maxDepth: 4)
+            {
+                return title
+            }
+            remainingDepth -= 1
+            currentView = candidate.superview
+        }
+        return nil
+    }
+
+    private func matchingInfoActionTitle(in view: UIView, maxDepth: Int) -> String? {
+        let titles: [String?]
+        if let label = view as? UILabel {
+            titles = [label.text, label.attributedText?.string, label.accessibilityLabel]
+        } else if let button = view as? UIButton {
+            titles = [button.title(for: .focused), button.title(for: .normal), button.accessibilityLabel]
+        } else {
+            titles = [view.accessibilityLabel]
+        }
+        if let title = titles.compactMap({ $0 }).first(where: { AutoTriggeredInfoAction(title: $0) != nil }) {
+            return title
+        }
+        guard maxDepth > 0 else { return nil }
+        for subview in view.subviews {
+            if let title = matchingInfoActionTitle(in: subview, maxDepth: maxDepth - 1) {
+                return title
+            }
+        }
+        return nil
     }
 
     @objc private func handleInfoActionFocusedNotification(_ note: Notification) {
