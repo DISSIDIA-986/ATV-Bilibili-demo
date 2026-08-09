@@ -51,11 +51,13 @@ final class FeaturedFeedFlowDataSource: FeedFlowDataSource {
     private var durationLimit = Settings.featuredDurationLimit
     private var lastSourceIdx: Int?
     private var seenItemKeys = Set<String>()
+    private var hasMore = true
 
     func reset() {
         durationLimit = Settings.featuredDurationLimit
         lastSourceIdx = nil
         seenItemKeys = []
+        hasMore = true
     }
 
     func refreshFromStart(targetCount: Int, maxSourcePages: Int) async throws -> [FeedFlowItem] {
@@ -64,6 +66,7 @@ final class FeaturedFeedFlowDataSource: FeedFlowDataSource {
         var nextSourceIdx: Int?
         var pagesScanned = 0
         var seenKeys = Set<String>()
+        var reachedEnd = false
 
         while loadedItems.count < targetCount, pagesScanned < maxSourcePages {
             try Task.checkCancellation()
@@ -76,11 +79,16 @@ final class FeaturedFeedFlowDataSource: FeedFlowDataSource {
             }
             try Task.checkCancellation()
             pagesScanned += 1
-            nextSourceIdx = sourceItems.last?.idx
+            guard let pageLastIdx = sourceItems.last?.idx else {
+                reachedEnd = true
+                break
+            }
+            nextSourceIdx = pageLastIdx
             loadedItems.append(contentsOf: sourceItems
                 .compactMap { $0.toFeaturedFeedFlowItem(durationLimit: requestDurationLimit) }
                 .filter { seenKeys.insert($0.identityKey).inserted })
-            if sourceItems.isEmpty || nextSourceIdx == requestedSourceIdx {
+            if nextSourceIdx == requestedSourceIdx {
+                reachedEnd = true
                 break
             }
         }
@@ -88,15 +96,18 @@ final class FeaturedFeedFlowDataSource: FeedFlowDataSource {
         try Task.checkCancellation()
         lastSourceIdx = nextSourceIdx
         seenItemKeys = seenKeys
+        hasMore = !reachedEnd
         return loadedItems
     }
 
     func loadMoreItems(targetCount: Int, maxSourcePages: Int) async throws -> [FeedFlowItem] {
+        guard hasMore else { return [] }
         let requestDurationLimit = durationLimit
         var accepted = [FeedFlowItem]()
         var pagesScanned = 0
         var nextSourceIdx = lastSourceIdx
         var seenKeys = seenItemKeys
+        var reachedEnd = false
 
         while accepted.count < targetCount, pagesScanned < maxSourcePages {
             try Task.checkCancellation()
@@ -104,11 +115,16 @@ final class FeaturedFeedFlowDataSource: FeedFlowDataSource {
             let sourceItems = try await ApiRequest.getFeeds(lastIdx: nextSourceIdx ?? 0)
             try Task.checkCancellation()
             pagesScanned += 1
-            nextSourceIdx = sourceItems.last?.idx
+            guard let pageLastIdx = sourceItems.last?.idx else {
+                reachedEnd = true
+                break
+            }
+            nextSourceIdx = pageLastIdx
             accepted.append(contentsOf: sourceItems
                 .compactMap { $0.toFeaturedFeedFlowItem(durationLimit: requestDurationLimit) }
                 .filter { seenKeys.insert($0.identityKey).inserted })
-            if sourceItems.isEmpty || nextSourceIdx == requestedSourceIdx {
+            if nextSourceIdx == requestedSourceIdx {
+                reachedEnd = true
                 break
             }
         }
@@ -116,6 +132,7 @@ final class FeaturedFeedFlowDataSource: FeedFlowDataSource {
         try Task.checkCancellation()
         lastSourceIdx = nextSourceIdx
         seenItemKeys = seenKeys
+        hasMore = !reachedEnd
         return accepted
     }
 }
